@@ -31,6 +31,12 @@
             </fieldset>
         </fields>
     </config>
+    <languages folder="language">
+        <language tag="en-GB">en-GB/plg_system_responsiveimages.ini</language>
+        <language tag="en-GB">en-GB/plg_system_responsiveimages.sys.ini</language>
+        <language tag="fr-FR">fr-FR/plg_system_responsiveimages.ini</language>
+        <language tag="fr-FR">fr-FR/plg_system_responsiveimages.sys.ini</language>
+    </languages>
     <updateservers>
         <server type="extension" priority="1" name="Responsive Images Update Server">
             https://raw.githubusercontent.com/web-tiki/joomla-responsive-images/main/update.xml
