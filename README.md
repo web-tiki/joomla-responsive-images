@@ -37,3 +37,5 @@ The default options can be set in plugin backend. They can be overriden in the t
 2. **Push & Tag:** Push to `main` and create a new Git Tag (e.g., `1.0.5`).
 3. **Wait for CI:** The pipeline will upload the ZIP to the Package Registry.
 4. **Joomla Update:** Joomla will fetch the latest ZIP via the permanent API link
+
+for commit
