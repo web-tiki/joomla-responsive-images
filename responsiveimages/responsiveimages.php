@@ -2,24 +2,24 @@
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\CMSPlugin;
-use Joomla\CMS\Factory;
 use Joomla\Filesystem\Folder;
 
 class PlgSystemResponsiveImages extends CMSPlugin
 {
-    // Doesn't work yet
-    /*
-    protected $app;
-
+    
     public function onAfterInitialise()
     {
+        // Register the layout path
+        LayoutHelper::addIncludePath(JPATH_PLUGINS . '/system/responsiveimages/layouts');
+        
+        // Handle your purge task if needed (uncommented and fixed for Joomla 6)
         if ($this->app->isClient('administrator')) {
-            $task = $this->app->input->getCmd('task');
-            if ($task === 'plugin.purgeResponsiveCache') {
+            if ($this->app->input->getCmd('task') === 'plugin.purgeResponsiveCache') {
                 $this->purgeCache();
             }
         }
     }
+    /*
 
     private function purgeCache()
     {
