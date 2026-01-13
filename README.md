@@ -12,7 +12,7 @@ Latest release (dowload the plugin here )
   https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
 
 
-A high-performance **system plugin for Joomla** that generates responsive, retina-ready images with WebP / AVIF support, lazy loading, and intelligent caching. This plugin is intended for developers as it requires to create template overrides to call the plugin. Each call can be customized to create different settings.   
+A high-performance **system plugin for Joomla** that generates responsive, retina-ready images with WebP / AVIF support, lazy loading, and intelligent caching. This plugin is intended for developers as it requires to create template overrides to call the plugin. Each call can be customized to create different settings. The plugins was initialy intended to work with the media custom field but it can also work with the default joomla intro or full images. 
 
 The plugin follows **modern Joomla best practices**:
 - business logic in a helper
