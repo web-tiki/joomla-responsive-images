@@ -5,7 +5,7 @@
     <namespace path="src">WebTiki\Plugin\System\ResponsiveImages</namespace>
     <author>web-tiki</author>
     <date>31/01/26</date>
-    <version>0.0.9</version>
+    <version>0.0.10</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
