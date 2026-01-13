@@ -4,7 +4,7 @@
     <element>responsiveimages</element>
     <namespace path="src">WebTiki\Plugin\System\ResponsiveImages</namespace>
     <author>web-tiki</author>
-    <date>31/01/26</date>
+    <creationDate>January 2026</creationDate>
     <version>0.0.10</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
