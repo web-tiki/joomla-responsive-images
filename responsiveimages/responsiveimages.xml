@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade" version="5.0">
+    <name>plg_system_responsiveimages</name>
+    <element>responsiveimages</element>
+    <namespace path="src">WebTiki\Plugin\System\ResponsiveImages</namespace>
+    <author>web-tiki an AI</author>
+    <version>0.0.1</version>
+    <description>Generate responsive and retina-ready images with WebP, lazyload, and cache purge.</description>
+    <files>
+        <filename plugin="responsiveimages">responsiveimages.php</filename>
+        <folder>src</folder>
+        <folder>language</folder>
+    </files>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field name="thumb_dir" type="text" default="thumbnails/responsive" label="Thumbnail output directory" description="Comma-separated list of widths for thumbnails" />
+                <field name="webp" type="radio" default="1" label="WebP" description="Enable WebP generation by default">
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field name="lazy" type="radio" default="1" label="Lazyload" description="Enable lazyload by default">
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field name="widths" type="text" default="640, 1280, 1920" label="Thumb widths" description="Comma-separated list of widths for thumbnails" />
+                <field name="sizes" type="text" default="100vw" label="Sizes attribute" description="Default sizes attribute for responsive images" />
+                <field name="quality" type="number" default="75" label="Image Quality" description="Quality for generated images (1-100) works only for webp and jpeg" />
+            </fieldset>
+        </fields>
+    </config>
+    <updateservers>
+        <server type="extension" priority="1" name="Responsive Images Update Server">
+            https://raw.githubusercontent.com/web-tiki/joomla-responsive-images/main/update.xml
+        </server>
+    </updateservers>
+</extension>

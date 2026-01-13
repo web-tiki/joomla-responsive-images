@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<updates>
+    <update>
+        <name>Responsive Image Joomla Plugin</name>
+        <description>Responsive images for Joomla 6</description>
+        <element>responsiveimages</element>
+        <type>plugin</type>
+        <folder>system</folder>
+        <client>site</client>
+        <version>0.0.1</version> 
+        <downloads>
+        <downloadurl type="full" format="zip">https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip</downloadurl>
+    </downloads>
+        <targetplatform name="joomla" version="[456].*"/>
+    </update>
+</updates>
