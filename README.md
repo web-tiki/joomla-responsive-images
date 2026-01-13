@@ -14,23 +14,26 @@ To use the helper in your Joomla template overrides (e.g., in `com_content` arti
 ### 1. Initialize the Helper
 Add the namespace at the top of your PHP override file:
 
+```php
     use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
-
+```
 
 
 ### 2. Basic Implementation
 Pass the Joomla image field and basic responsive parameters:
 
-
+```php
     $field = $fields['main-img'] ?? null;
     echo ResponsiveImageHelper::render($field, [
         'sizes'     => '(max-width: 600px) 100vw, 100vw',
         'widths'      => [640,900,1280,1920,3200]
     ]);
+```
 
 ### 3. Advanced Implementation (Full Options)
 You can override global backend settings directly in the code:
 
+```php
     $field = $fields['main-img'] ?? null;
     echo ResponsiveImageHelper::render($field, [
         'lazy'        => true,             // Enable/Disable lazyloading
@@ -43,7 +46,7 @@ You can override global backend settings directly in the code:
         'quality'     => 75,               // Image compression (1-100)
         'aspectRatio' => null              // 1 (square), 0.5 (2:1), 2 (1:2). Use null for original.
     ]);
-
+```
 
 ## ⚙️ Plugin Configuration
 
@@ -61,8 +64,11 @@ This project uses GitHub Actions to automate releases.
    2. `responsiveimages/responsiveimages.xml`.
 2. Commit & Push: Push your changes to the `main` branch.
 3. Create Tag: Tag the commit using the "v" prefix:
-    `git tag v0.0.3
-     git push origin v0.0.3`
+    ```PowerShell
+    git tag v0.0.3
+    git push origin v0.0.3`
+    ```
+     
 
 4. Download: The system will automatically build the `responsiveimages.zip` and publish it to the [Releases page](https://github.com/web-tiki/joomla-responsive-images/releases).
 
