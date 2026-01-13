@@ -15,7 +15,7 @@ To use the helper in your Joomla template overrides (e.g., in `com_content` arti
 Add the namespace at the top of your PHP override file:
 
 ```php
-    use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
+use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
 ```
 
 
@@ -23,29 +23,29 @@ Add the namespace at the top of your PHP override file:
 Pass the Joomla image field and basic responsive parameters:
 
 ```php
-    $field = $fields['main-img'] ?? null;
-    echo ResponsiveImageHelper::render($field, [
-        'sizes'     => '(max-width: 600px) 100vw, 100vw',
-        'widths'      => [640,900,1280,1920,3200]
-    ]);
+$field = $fields['main-img'] ?? null;
+echo ResponsiveImageHelper::render($field, [
+    'sizes'     => '(max-width: 600px) 100vw, 100vw',
+    'widths'      => [640,900,1280,1920,3200]
+]);
 ```
 
 ### 3. Advanced Implementation (Full Options)
 You can override global backend settings directly in the code:
 
 ```php
-    $field = $fields['main-img'] ?? null;
-    echo ResponsiveImageHelper::render($field, [
-        'lazy'        => true,             // Enable/Disable lazyloading
-        'webp'        => true,             // Enable/Disable WebP generation
-        'alt'         => 'Alt text',       // Custom alt attribute
-        'sizes'       => '100vw',          // HTML sizes attribute
-        'widths'      => [640, 1280],      // Array of widths to generate
-        'heights'     => null,             // Array of heights for fixed resizing or null if the images should keep their aspect ratio
-        'outputDir'   => 'thumbnails/res', // Folder relative to Joomla root
-        'quality'     => 75,               // Image compression (1-100)
-        'aspectRatio' => null              // 1 (square), 0.5 (2:1), 2 (1:2). Use null for original.
-    ]);
+$field = $fields['main-img'] ?? null;
+echo ResponsiveImageHelper::render($field, [
+    'lazy'        => true,             // Enable/Disable lazyloading
+    'webp'        => true,             // Enable/Disable WebP generation
+    'alt'         => 'Alt text',       // Custom alt attribute
+    'sizes'       => '100vw',          // HTML sizes attribute
+    'widths'      => [640, 1280],      // Array of widths to generate
+    'heights'     => null,             // Array of heights for fixed resizing or null if the images should keep their aspect ratio
+    'outputDir'   => 'thumbnails/res', // Folder relative to Joomla root
+    'quality'     => 75,               // Image compression (1-100)
+    'aspectRatio' => null              // 1 (square), 0.5 (2:1), 2 (1:2). Use null for original.
+]);
 ```
 
 ## ⚙️ Plugin Configuration
@@ -66,7 +66,7 @@ This project uses GitHub Actions to automate releases.
 3. Create Tag: Tag the commit using the "v" prefix:
     ```PowerShell
     git tag v0.0.3
-    git push origin v0.0.3`
+    git push origin v0.0.3
     ```
      
 
