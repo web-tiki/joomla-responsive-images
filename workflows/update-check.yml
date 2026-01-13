@@ -1,0 +1,17 @@
+name: CI Check
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify plugin zips correctly
+        run: |
+          cd responsiveimages
+          zip -r ../test.zip .
+          echo "ZIP created successfully"
