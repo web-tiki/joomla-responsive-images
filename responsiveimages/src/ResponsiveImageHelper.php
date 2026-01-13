@@ -64,7 +64,7 @@ class ResponsiveImageHelper
         return ['width'=>$cropW,'height'=>$cropH,'x'=>$cropX,'y'=>$cropY,'ratio'=>$targetRatio];
     }
 
-    public static function getProcessedData($imageField, array $options = []): string
+    public static function getProcessedData($imageField, array $options = []): array
     {
         if (!$imageField) return '';
 

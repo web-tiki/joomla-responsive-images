@@ -6,20 +6,15 @@ use Joomla\Filesystem\Folder;
 
 class PlgSystemResponsiveImages extends CMSPlugin
 {
-    
+    /*
     public function onAfterInitialise()
     {
-        // Register the layout path
-        LayoutHelper::addIncludePath(JPATH_PLUGINS . '/system/responsiveimages/layouts');
-        
-        // Handle your purge task if needed (uncommented and fixed for Joomla 6)
         if ($this->app->isClient('administrator')) {
             if ($this->app->input->getCmd('task') === 'plugin.purgeResponsiveCache') {
                 $this->purgeCache();
             }
         }
     }
-    /*
 
     private function purgeCache()
     {
@@ -32,5 +27,5 @@ class PlgSystemResponsiveImages extends CMSPlugin
         }
         $this->app->redirect('index.php?option=com_plugins&view=plugins&filter[folder]=system');
     }
-        */
+    */
 }
