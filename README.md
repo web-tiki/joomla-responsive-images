@@ -1,5 +1,6 @@
 # Joomla plugin responsive images
 
+![Joomla Version](https://img.shields.io/badge/Joomla-5.x-blue.svg)
 ![Joomla Version](https://img.shields.io/badge/Joomla-6.x-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Build Status](https://github.com/web-tiki/joomla-responsive-images/actions/workflows/release.yml/badge.svg)
