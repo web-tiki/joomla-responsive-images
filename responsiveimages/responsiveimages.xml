@@ -3,9 +3,10 @@
     <name>plg_system_responsiveimages</name>
     <element>responsiveimages</element>
     <namespace path="src">WebTiki\Plugin\System\ResponsiveImages</namespace>
-    <author>web-tiki an AI</author>
+    <author>web-tiki</author>
+    <date>31/01/26</date>
     <version>0.0.9</version>
-    <description>Generate responsive and retina-ready images with WebP, lazyload, and cache purge.</description>
+    <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
         <folder>language</folder>
@@ -15,7 +16,7 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
-                <field name="thumb_dir" type="text" default="thumbnails/responsive" label="Thumbnail output directory" description="Comma-separated list of widths for thumbnails" />
+                <field name="thumb_dir" type="text" default="thumbnails/responsive" label="Thumbnail output directory" description="Where should the thumbnails be stored ?" />
                 <field name="webp" type="radio" default="1" label="WebP" description="Enable WebP generation by default">
                     <option value="1">JYES</option>
                     <option value="0">JNO</option>
