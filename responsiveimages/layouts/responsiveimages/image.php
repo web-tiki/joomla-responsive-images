@@ -19,9 +19,8 @@ if (!class_exists(ResponsiveImageHelper::class)) {
 // Get the raw data from the helper
 $data = ResponsiveImageHelper::getProcessedData($field, $options);
 
-if (!$data) {
-    return;
-}
+if (!$data) { return '<!-- data is null -->'; }
+if (empty($data)) { return '<!-- data is empty -->'; }
 
 // 1. Handle SVG Case
 if ($data['isSvg']) : ?>

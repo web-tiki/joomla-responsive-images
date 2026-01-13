@@ -66,7 +66,7 @@ class ResponsiveImageHelper
 
     public static function getProcessedData($imageField, array $options = []): array
     {
-        if (!$imageField) return '';
+        if (!$imageField) return [];
 
         // 1. Setup Plugin Params & Options
         $plugin       = PluginHelper::getPlugin('system', 'responsiveimages');
@@ -96,16 +96,16 @@ class ResponsiveImageHelper
             $imageFieldPath = $imageField->imagefile ?? '';
             $imageFieldAlt  = $imageField->alt_text ?? '';
         } else {
-            return '';
+            return [];
         }
 
-        if (!$imageFieldPath) return '';
+        if (!$imageFieldPath) return [];
 
         // 3. Resolve File and Path Info
         $imageParts = explode('#', $imageFieldPath);
         $oImagePath = str_replace('%20', ' ', $imageParts[0]);
         
-        if (!is_file($oImagePath)) return "";
+        if (!is_file($oImagePath)) return [];
 
         $oImagePathInfo  = pathinfo($oImagePath);
         $oImageExtension = strtolower($oImagePathInfo['extension']);
@@ -128,7 +128,7 @@ class ResponsiveImageHelper
             [$oImageParams['width'], $oImageParams['height']] = getimagesize($oImagePath);
         }
         
-        if (!$oImageParams['width'] || !$oImageParams['height']) return '';
+        if (!$oImageParams['width'] || !$oImageParams['height']) return [];
 
         $oImageRatio = $oImageParams['height'] / $oImageParams['width'];
 
@@ -149,7 +149,14 @@ class ResponsiveImageHelper
         if ($oImageExtension == 'svg') {
             $src = self::safePath(str_replace(JPATH_ROOT . '/', '', $oImagePath));
             $loading = $opt['lazy'] ? ' loading="lazy"' : '';
-            return sprintf('<img src="%s" alt="%s" width="%d" height="%d"%s>', $src, $escAlt, $oImageParams['width'], $oImageParams['height'], $loading);
+            return [
+                'isSvg'   => true,
+                'src'     => $src,
+                'alt'     => $escAlt,
+                'width'   => $oImageParams['width'],
+                'height'  => $oImageParams['height'], 
+                'loading' => $loading,
+            ];
         }
 
         // 8. Prepare Thumbnail Processing
