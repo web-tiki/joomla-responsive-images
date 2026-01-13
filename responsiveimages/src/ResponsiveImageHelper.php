@@ -64,7 +64,7 @@ class ResponsiveImageHelper
         return ['width'=>$cropW,'height'=>$cropH,'x'=>$cropX,'y'=>$cropY,'ratio'=>$targetRatio];
     }
 
-    public static function render($imageField, array $options = []): string
+    public static function getProcessedData($imageField, array $options = []): string
     {
         if (!$imageField) return '';
 
@@ -228,20 +228,20 @@ class ResponsiveImageHelper
             $oImage->destroy();
         }
 
-        // 10. Generate HTML Output
-        $fallbackSrc = explode(' ', end($srcsetParts))[0];
-        $loading     = $opt['lazy'] ? ' loading="lazy"' : '';
-        $sizes       = htmlspecialchars($opt['sizes']);
-
-        $html = '<picture>';
-        if ($opt['webp'] && !empty($srcsetPartsWebp)) {
-            $html .= sprintf('<source srcset="%s" sizes="%s" type="image/webp">', implode(', ', $srcsetPartsWebp), $sizes);
-        }
-        $html .= sprintf('<source srcset="%s" sizes="%s" type="image/%s">', implode(', ', $srcsetParts), $sizes, $oImageExtension);
-        $html .= sprintf('<img src="%s" alt="%s" width="%d" height="%d"%s>', $fallbackSrc, $escAlt, $oImageParams['width'], $oImageParams['height'], $loading);
-        $html .= '</picture>';
-
-        return $html;
+        // RETURN FORMAT FOR LAYOUTS
+        return [
+            'isSvg'      => ($oImageExtension === 'svg'),
+            'src'        => $oImageExtension === 'svg' ? self::safePath(str_replace(JPATH_ROOT . '/', '', $oImagePath)) : null,
+            'srcset'     => implode(', ', $srcsetParts),
+            'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetPartsWebp) : null,
+            'fallback'   => explode(' ', end($srcsetParts))[0],
+            'sizes'      => htmlspecialchars($opt['sizes']),
+            'alt'        => $escAlt,
+            'width'      => $oImageParams['width'],
+            'height'     => $oImageParams['height'],
+            'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
+            'extension'  => $oImageExtension
+        ];
     }
 
     /**

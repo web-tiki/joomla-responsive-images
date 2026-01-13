@@ -8,8 +8,9 @@
     <description>Generate responsive and retina-ready images with WebP, lazyload, and cache purge.</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
-        <folder>src</folder>
         <folder>language</folder>
+        <folder>src</folder>
+        <folder>layouts</folder>        
     </files>
     <config>
         <fields name="params">
