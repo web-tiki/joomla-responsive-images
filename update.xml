@@ -6,11 +6,12 @@
         <element>responsiveimages</element>
         <type>plugin</type>
         <folder>system</folder>
-        <client>site</client>
+        <client>0</client> 
         <version>0.0.2</version> 
         <downloads>
-        <downloadurl type="full" format="zip">https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip</downloadurl>
-    </downloads>
-        <targetplatform name="joomla" version="[456].*"/>
-    </update>
+            <downloadurl type="full" format="zip">
+                https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
+            </downloadurl>
+        </downloads>
+        <targetplatform name="joomla" version="^[56]\..*"/> </update>
 </updates>
