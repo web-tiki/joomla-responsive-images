@@ -1,8 +1,5 @@
 <?php
-/**
- * @package     Joomla.Plugin
- * @subpackage  System.ResponsiveImages
- */
+declare(strict_types=1);
 
 defined('_JEXEC') or die;
 
@@ -11,41 +8,40 @@ use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
 $field   = $displayData['field'] ?? null;
 $options = $displayData['options'] ?? [];
 
-// Insurance policy: prevents site crash if plugin is partially missing
 if (!class_exists(ResponsiveImageHelper::class)) {
     return;
 }
 
-// Get the raw data from the helper
 $data = ResponsiveImageHelper::getProcessedData($field, $options);
 
-if (!$data) { return '<!-- data is null -->'; }
-if (empty($data)) { return '<!-- data is empty -->'; }
+if (empty($data)) {
+    return;
+}
 
-// 1. Handle SVG Case
-if ($data['isSvg']) : ?>
-    <img src="<?php echo $data['src']; ?>" 
-         alt="<?php echo $data['alt']; ?>" 
-         width="<?php echo $data['width']; ?>" 
-         height="<?php echo $data['height']; ?>" 
-         <?php echo $data['loading']; ?>>
+if (!empty($data['isSvg'])) : ?>
+<img src="<?= $data['src']; ?>"
+     alt="<?= $data['alt']; ?>"
+     width="<?= (int)$data['width']; ?>"
+     height="<?= (int)$data['height']; ?>"
+     <?= $data['loading']; ?>
+     <?= $data['decoding'] ?? ''; ?>>
 <?php return; endif; ?>
 
-<?php // 2. Handle Responsive Picture Case ?>
 <picture>
-    <?php if ($data['webpSrcset']) : ?>
-        <source srcset="<?php echo $data['webpSrcset']; ?>" 
-                sizes="<?php echo $data['sizes']; ?>" 
+    <?php if (!empty($data['webpSrcset'])) : ?>
+        <source srcset="<?= $data['webpSrcset']; ?>"
+                sizes="<?= $data['sizes']; ?>"
                 type="image/webp">
     <?php endif; ?>
-    
-    <source srcset="<?php echo $data['srcset']; ?>" 
-            sizes="<?php echo $data['sizes']; ?>" 
-            type="image/<?php echo $data['extension']; ?>">
-            
-    <img src="<?php echo $data['fallback']; ?>" 
-         alt="<?php echo $data['alt']; ?>" 
-         width="<?php echo $data['width']; ?>" 
-         height="<?php echo $data['height']; ?>" 
-         <?php echo $data['loading']; ?>>
+
+    <source srcset="<?= $data['srcset']; ?>"
+            sizes="<?= $data['sizes']; ?>"
+            type="image/<?= $data['extension']; ?>">
+
+    <img src="<?= $data['fallback']; ?>"
+         alt="<?= $data['alt']; ?>"
+         width="<?= (int)$data['width']; ?>"
+         height="<?= (int)$data['height']; ?>"
+         <?= $data['loading']; ?>
+         <?= $data['decoding']; ?>>
 </picture>

@@ -1,248 +1,267 @@
 <?php
+declare(strict_types=1);
+
 /**
  * @package    Joomla.Plugin
  * @subpackage System.ResponsiveImages
- *
- * Helper for responsive image rendering and thumbnail generation (Imagick-based)
  */
-
 
 namespace WebTiki\Plugin\System\ResponsiveImages;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\PluginHelper;
 use Imagick;
+use RuntimeException;
 
-class ResponsiveImageHelper
+final class ResponsiveImageHelper
 {
-    /**
-     * Normalize and sanitize a full path for URL usage: all folders + filename
-     * Preserves hyphens for SEO-friendly URLs
-     *
-     * @param string $fullPath
-     * @return string
-     */
-    private static function safePath(string $fullPath): string
+    /* ==========================================================
+     * Path & URL helpers
+     * ========================================================== */
+
+    private static function safeUrl(string $path): string
     {
-        $fullPath = str_replace('\\', '/', $fullPath); // Convert backslashes
-        $parts = explode('/', $fullPath);
-        foreach ($parts as &$part) {
-            // Transliterate UTF-8 accents to ASCII
-            $part = iconv('UTF-8', 'ASCII//TRANSLIT', $part);
-            // Keep letters, numbers, underscores, dots, and hyphens
-            $part = preg_replace('![^a-z0-9._-]+!i', '_', $part);
-            // Replace multiple underscores with a single underscore
-            $part = preg_replace('!_+!', '_', $part);
-            $part = trim($part, '_');
-        }
-        $safePath = implode('/', $parts);
-        $safePath = preg_replace('!/{2,}!', '/', $safePath); // Remove duplicate slashes
-        return $safePath;
+        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+        return implode('/', array_map('rawurlencode', explode('/', $path)));
     }
 
-    private static function calculateCropDimensions(int $originalW, int $originalH, float|int $targetRatio): ?array
+    private static function assertInsideRoot(string $path): string
     {
-        if (!is_numeric($targetRatio) || $targetRatio <= 0) return null;
+        $real = realpath($path);
+        $root = realpath(JPATH_ROOT);
 
-        $targetRatio = (float)$targetRatio;
-        $originalRatio = $originalH / $originalW;
-
-        if ($originalRatio > $targetRatio) {
-            $cropW = $originalW;
-            $cropH = (int)round($originalW * $targetRatio);
-            $cropX = 0;
-            $cropY = (int)round(($originalH - $cropH) / 2);
-        } else {
-            $cropH = $originalH;
-            $cropW = (int)round($originalH / $targetRatio);
-            $cropX = (int)round(($originalW - $cropW) / 2);
-            $cropY = 0;
+        if (!$real || !$root || !str_starts_with($real, $root)) {
+            throw new RuntimeException('Invalid image path');
         }
 
-        return ['width'=>$cropW,'height'=>$cropH,'x'=>$cropX,'y'=>$cropY,'ratio'=>$targetRatio];
+        return $real;
     }
 
-    public static function getProcessedData($imageField, array $options = []): array
-    {
-        if (!$imageField) return [];
+    /* ==========================================================
+     * Image helpers
+     * ========================================================== */
 
-        // 1. Setup Plugin Params & Options
-        $plugin       = PluginHelper::getPlugin('system', 'responsiveimages');
-        $pluginParams = isset($plugin->params) ? json_decode($plugin->params, true) : [];
+    private static function calculateCrop(
+        int $ow,
+        int $oh,
+        float $ratio
+    ): array {
+        $or = $oh / $ow;
 
-        $defaultOptions = [
-            'lazy'        => $pluginParams['lazy'] ?? true,
-            'webp'        => $pluginParams['webp'] ?? true,
-            'alt'         => '', // This acts as the "default" if backend is empty
-            'sizes'       => $pluginParams['sizes'] ?? '100vw',
-            'widths'      => isset($pluginParams['widths']) ? explode(',', $pluginParams['widths']) : [640, 1280, 1920],
-            'heights'     => null,
-            'outputDir'   => $pluginParams['thumb_dir'] ?? 'thumbnails/responsive',
-            'quality'     => $pluginParams['quality'] ?? 70,
-            'aspectRatio' => null,
-        ];
+        if ($or > $ratio) {
+            $h = (int) round($ow * $ratio);
+            return [$ow, $h, 0, (int)(($oh - $h) / 2)];
+        }
 
-        $opt = array_merge($defaultOptions, $options);
+        $w = (int) round($oh / $ratio);
+        return [$w, $oh, (int)(($ow - $w) / 2), 0];
+    }
 
-        // 2. Parse Image Field Data
-        if (is_string($imageField)) $imageField = json_decode($imageField, true);
+    /* ==========================================================
+     * Public API
+     * ========================================================== */
 
-        if (is_array($imageField)) {
-            $imageFieldPath = $imageField['imagefile'] ?? '';
-            $imageFieldAlt  = $imageField['alt_text'] ?? '';
-        } elseif ($imageField instanceof \stdClass) {
-            $imageFieldPath = $imageField->imagefile ?? '';
-            $imageFieldAlt  = $imageField->alt_text ?? '';
-        } else {
+    public static function getProcessedData(
+        mixed $imageField,
+        array $options = []
+    ): array {
+        if (!$imageField) {
             return [];
         }
 
-        if (!$imageFieldPath) return [];
+        /* ---------------- Plugin defaults ---------------- */
 
-        // 3. Resolve File and Path Info
-        $imageParts = explode('#', $imageFieldPath);
-        $oImagePath = str_replace('%20', ' ', $imageParts[0]);
-        
-        if (!is_file($oImagePath)) return [];
+        $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
+        $params = $plugin->params ? json_decode($plugin->params, true) : [];
 
-        $oImagePathInfo  = pathinfo($oImagePath);
-        $oImageExtension = strtolower($oImagePathInfo['extension']);
-        $oImageName      = $oImagePathInfo['filename'];
-        $oImageDir       = $oImagePathInfo['dirname'];
+        $defaults = [
+            'lazy'        => (bool)($params['lazy'] ?? true),
+            'webp'        => (bool)($params['webp'] ?? true),
+            'sizes'       => (string)($params['sizes'] ?? '100vw'),
+            'widths'      => array_map('intval', explode(',', $params['widths'] ?? '640,1280,1920')),
+            'quality'     => max(1, min(100, (int)($params['quality'] ?? 75))),
+            'outputDir'   => trim($params['thumb_dir'] ?? 'thumbnails', '/'),
+            'alt'         => '',
+            'aspectRatio' => null,
+        ];
 
-        // 4. DETERMINE FINAL ALT TEXT (The fix)
-        // Priority: Joomla Backend > Template Option > Filename
-        $finalAlt = trim($imageFieldAlt) ?: ($opt['alt'] ?: $oImageName);
-        $escAlt   = htmlspecialchars($finalAlt, ENT_QUOTES);
+        $opt = array_merge($defaults, $options);
 
-        // 5. Get Original Dimensions
-        $oImageParams = ['width' => 0, 'height' => 0];
-        if (isset($imageParts[1])) {
-            $params = parse_url($imageParts[1]);
-            if (isset($params['query'])) parse_str($params['query'], $oImageParams);
-        }
-        
-        if (empty($oImageParams['width']) || empty($oImageParams['height'])) {
-            [$oImageParams['width'], $oImageParams['height']] = getimagesize($oImagePath);
-        }
-        
-        if (!$oImageParams['width'] || !$oImageParams['height']) return [];
+        /* ---------------- Parse field ---------------- */
 
-        $oImageRatio = $oImageParams['height'] / $oImageParams['width'];
-
-        // 6. Handle Cropping/Aspect Ratio
-        $cropDimensions = null;
-        $filenameRatioAppendix = '';
-        if ($opt['aspectRatio'] !== null && is_numeric($opt['aspectRatio']) && $opt['aspectRatio'] > 0) {
-            $cropDimensions = self::calculateCropDimensions($oImageParams['width'], $oImageParams['height'], $opt['aspectRatio']);
-            if ($cropDimensions) {
-                $oImageParams['width']  = $cropDimensions['width'];
-                $oImageParams['height'] = $cropDimensions['height'];
-                $oImageRatio            = $cropDimensions['ratio'];
-                $filenameRatioAppendix  = '-ar' . str_replace('.', '', (string)$opt['aspectRatio']);
-            }
+        if (is_string($imageField)) {
+            $imageField = json_decode($imageField, true);
         }
 
-        // 7. Early Exit for SVG
-        if ($oImageExtension == 'svg') {
-            $src = self::safePath(str_replace(JPATH_ROOT . '/', '', $oImagePath));
-            $loading = $opt['lazy'] ? ' loading="lazy"' : '';
+        $path = $imageField['imagefile'] ?? $imageField->imagefile ?? '';
+        $alt  = $imageField['alt_text'] ?? $imageField->alt_text ?? '';
+
+        if (!$path) {
+            return [];
+        }
+
+        $path = str_replace('%20', ' ', $path);
+        $path = self::assertInsideRoot($path);
+
+        if (!is_file($path)) {
+            return [];
+        }
+
+        $info = pathinfo($path);
+        $ext  = strtolower($info['extension'] ?? '');
+
+        /* ---------------- SVG shortcut ---------------- */
+
+        if ($ext === 'svg') {
+            [$w, $h] = getimagesize($path) ?: [0, 0];
+
             return [
                 'isSvg'   => true,
-                'src'     => $src,
-                'alt'     => $escAlt,
-                'width'   => $oImageParams['width'],
-                'height'  => $oImageParams['height'], 
-                'loading' => $loading,
+                'src'     => '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $path)),
+                'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
+                'width'   => $w,
+                'height'  => $h,
+                'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
             ];
         }
 
-        // 8. Prepare Thumbnail Processing
-        $thumbDir = self::safePath(trim($opt['outputDir'], '/') . '/' . $oImageDir);
-        if (!is_dir($thumbDir)) mkdir($thumbDir, 0755, true);
+        /* ---------------- Image metadata ---------------- */
 
-        $thumbHash = substr(md5($oImageName . filemtime($oImagePath) . $filenameRatioAppendix), 0, 8);
-        
-        $dimensionList = !empty($opt['heights']) && is_array($opt['heights']) ? $opt['heights'] : $opt['widths'];
-        $dimensionBy   = !empty($opt['heights']) && is_array($opt['heights']) ? 'height' : 'width';
+        [$ow, $oh] = getimagesize($path);
+        if (!$ow || !$oh) {
+            return [];
+        }
 
-        $srcsetParts = [];
-        $srcsetPartsWebp = [];
-        $thumbPaths = [];
-        $needsProcessing = false;
+        $ratio = $oh / $ow;
+        $crop  = null;
 
-        foreach ($dimensionList as $dimension) {
-            if ($dimensionBy == 'width') {
-                $thumbW = min($dimension, $oImageParams['width']);
-                $thumbH = (int)round($thumbW * $oImageRatio);
-            } else {
-                $thumbH = min($dimension, $oImageParams['height']);
-                $thumbW = (int)round($thumbH / $oImageRatio);
+        if (is_numeric($opt['aspectRatio']) && $opt['aspectRatio'] > 0) {
+            $crop = self::calculateCrop($ow, $oh, (float)$opt['aspectRatio']);
+            [$ow, $oh] = [$crop[0], $crop[1]];
+            $ratio = $oh / $ow;
+        }
+
+        /* ---------------- Output dir ---------------- */
+
+        // Ensure original image is inside /images
+        $imagesRoot = realpath(JPATH_ROOT . '/images');
+        $realImage  = realpath($path);
+
+        if (!$imagesRoot || !$realImage || !str_starts_with($realImage, $imagesRoot)) {
+            return [];
+        }
+
+        // Relative directory inside /images (e.g. new york/parc)
+        $relativeDir = trim(
+            str_replace($imagesRoot, '', dirname($realImage)),
+            DIRECTORY_SEPARATOR
+        );
+
+        // Final thumbnail base directory
+        $outBase = JPATH_ROOT . '/images/' . trim($opt['outputDir'], '/');
+
+        if ($relativeDir !== '') {
+            $outBase .= '/' . $relativeDir;
+        }
+
+        // Create directory safely
+        if (!is_dir($outBase) && !mkdir($outBase, 0755, true)) {
+            return [];
+        }
+
+        $hash = substr(md5($path . filemtime($path)), 0, 8);
+
+        $srcset = [];
+        $srcsetWebp = [];
+        $jobs = [];
+
+        foreach ($opt['widths'] as $w) {
+            $w = min($w, $ow);
+            $h = (int) round($w * $ratio);
+
+            if ($w <= 0 || $h <= 0) {
+                continue;
             }
-            
-            if ($thumbW <= 0 || $thumbH <= 0) continue;
 
-            $thumbBase = sprintf('%s/%s-%s%s-q%d-%dx%d', $thumbDir, self::safePath($oImageName), $thumbHash, $filenameRatioAppendix, $opt['quality'], $thumbW, $thumbH);
-            $thumbFile = $thumbBase . '.' . $oImageExtension;
-            $webpFile  = $thumbBase . '.webp';
+            $base = sprintf(
+                '%s/%s-%s-q%d-%dx%d',
+                $outBase,
+                $info['filename'],
+                $hash,
+                $opt['quality'],
+                $w,
+                $h
+            );
 
-            $thumbPaths[] = ['thumbFile' => $thumbFile, 'webpFile' => $webpFile, 'width' => $thumbW, 'height' => $thumbH];
+            $file = $base . '.' . $ext;
+            $webp = $base . '.webp';
 
-            $srcsetParts[] = '/' . self::safePath(str_replace(JPATH_ROOT . '/', '', $thumbFile)) . " {$thumbW}w";
+            $jobs[] = [$file, $webp, $w, $h];
+
+            $srcset[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $file)) . " {$w}w";
             if ($opt['webp']) {
-                $srcsetPartsWebp[] = '/' . self::safePath(str_replace(JPATH_ROOT . '/', '', $webpFile)) . " {$thumbW}w";
-            }
-
-            if (!is_file($thumbFile) || ($opt['webp'] && !is_file($webpFile))) {
-                $needsProcessing = true;
+                $srcsetWebp[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $webp)) . " {$w}w";
             }
         }
 
-        // 9. Imagick Processing
-        if ($needsProcessing) {
-            $oImage = new \Imagick($oImagePath);
-            if ($cropDimensions !== null) {
-                $oImage->cropImage($cropDimensions['width'], $cropDimensions['height'], $cropDimensions['x'], $cropDimensions['y']);
-                $oImage->setImagePage(0, 0, 0, 0);
+        /* ---------------- Locked generation ---------------- */
+
+        $lock = fopen($outBase . '/.lock', 'c');
+        if ($lock && flock($lock, LOCK_EX)) {
+            $img = new Imagick($path);
+
+            if ($crop) {
+                $img->cropImage(...$crop);
+                $img->setImagePage(0, 0, 0, 0);
             }
-            foreach ($thumbPaths as $p) {
-                if (!is_file($p['thumbFile'])) {
-                    $thumb = clone $oImage;
-                    $thumb->resizeImage($p['width'], $p['height'], \Imagick::FILTER_LANCZOS, 1, true);
-                    $thumb->setImageFormat($oImageExtension);
-                    if ($oImageExtension == 'png') $thumb->setOption('png:compression-level', 9);
-                    else $thumb->setImageCompressionQuality($opt['quality']);
-                    $thumb->writeImage($p['thumbFile']);
-                    $thumb->destroy();
+
+            foreach ($jobs as [$file, $webp, $w, $h]) {
+                if (!is_file($file)) {
+                    $tmp = tempnam(dirname($file), 'ri_');
+                    $t = clone $img;
+                    $t->resizeImage($w, $h, Imagick::FILTER_LANCZOS, 1, true);
+                    $t->setImageFormat($ext);
+                    $t->setImageCompressionQuality($opt['quality']);
+                    $t->writeImage($tmp);
+                    rename($tmp, $file);
+                    $t->clear();
                 }
-                if ($opt['webp'] && !is_file($p['webpFile'])) {
-                    $tw = clone $oImage;
-                    $tw->resizeImage($p['width'], $p['height'], \Imagick::FILTER_LANCZOS, 1, true);
-                    $tw->setImageFormat('webp');
-                    $tw->setImageCompressionQuality($opt['quality']);
-                    $tw->writeImage($p['webpFile']);
-                    $tw->destroy();
+
+                if ($opt['webp'] && !is_file($webp)) {
+                    $tmp = tempnam(dirname($webp), 'ri_');
+                    $t = clone $img;
+                    $t->resizeImage($w, $h, Imagick::FILTER_LANCZOS, 1, true);
+                    $t->setImageFormat('webp');
+                    $t->setImageCompressionQuality($opt['quality']);
+                    $t->writeImage($tmp);
+                    rename($tmp, $webp);
+                    $t->clear();
                 }
             }
-            $oImage->clear();
-            $oImage->destroy();
+
+            $img->clear();
+            flock($lock, LOCK_UN);
         }
 
-        // RETURN FORMAT FOR LAYOUTS
+        if ($lock) {
+            fclose($lock);
+        }
+
+        $fallback = explode(' ', end($srcset))[0];
+
         return [
-            'isSvg'      => ($oImageExtension === 'svg'),
-            'src'        => $oImageExtension === 'svg' ? self::safePath(str_replace(JPATH_ROOT . '/', '', $oImagePath)) : null,
-            'srcset'     => implode(', ', $srcsetParts),
-            'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetPartsWebp) : null,
-            'fallback'   => explode(' ', end($srcsetParts))[0],
-            'sizes'      => htmlspecialchars($opt['sizes']),
-            'alt'        => $escAlt,
-            'width'      => $oImageParams['width'],
-            'height'     => $oImageParams['height'],
+            'isSvg'      => false,
+            'srcset'     => implode(', ', $srcset),
+            'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetWebp) : null,
+            'fallback'   => $fallback,
+            'sizes'      => htmlspecialchars($opt['sizes'], ENT_QUOTES),
+            'alt'        => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
+            'width'      => $ow,
+            'height'     => $oh,
             'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
-            'extension'  => $oImageExtension
+            'decoding'   => 'decoding="async"',
+            'extension'  => $ext,
         ];
     }
 }
