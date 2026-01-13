@@ -72,11 +72,6 @@ class ResponsiveImageHelper
         $plugin       = PluginHelper::getPlugin('system', 'responsiveimages');
         $pluginParams = isset($plugin->params) ? json_decode($plugin->params, true) : [];
 
-        // Check if the plugin is actually enabled in Joomla and render the normal (with the renderSimple function) image tag if it isn't enabled
-        if (!$plugin) {
-            return self::renderSimple($imageField, $options);
-        }
-
         $defaultOptions = [
             'lazy'        => $pluginParams['lazy'] ?? true,
             'webp'        => $pluginParams['webp'] ?? true,
@@ -242,23 +237,5 @@ class ResponsiveImageHelper
             'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
             'extension'  => $oImageExtension
         ];
-    }
-
-    /**
-     * Fallback to render a standard image tag if the plugin is disabled.
-     */
-    private static function renderSimple($imageField, $options): string
-    {
-        if (is_string($imageField)) $imageField = json_decode($imageField, true);
-        
-        $path = $imageField['imagefile'] ?? '';
-        $alt  = htmlspecialchars($imageField['alt_text'] ?? ($options['alt'] ?? ''), ENT_QUOTES);
-
-        if (!$path) return '';
-
-        // Remove the # dimensions Joomla adds to the path
-        $src = explode('#', $path)[0];
-
-        return sprintf('<img src="%s" alt="%s" loading="lazy">', $src, $alt);
     }
 }
