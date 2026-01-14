@@ -2,8 +2,11 @@
 declare(strict_types=1);
 
 /**
- * @package    Joomla.Plugin
- * @subpackage System.ResponsiveImages
+ * @package     Joomla.Plugin
+ * @subpackage  System.ResponsiveImages
+ *
+ * @copyright   (C) 2026 web-tiki
+ * @license     GNU General Public License version 2 or later;
  */
 
 namespace WebTiki\Plugin\System\ResponsiveImages;
