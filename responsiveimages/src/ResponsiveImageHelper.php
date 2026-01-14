@@ -135,7 +135,7 @@ final class ResponsiveImageHelper
             'sizes'       => (string)($params['sizes'] ?? '100vw'),
             'widths'      => array_map('intval', explode(',', $params['widths'] ?? '640,1280,1920')),
             'quality'     => max(1, min(100, (int)($params['quality'] ?? 75))),
-            'outputDir'   => trim($params['thumb_dir'] ?? 'thumbnails', '/'),
+            'outputDir'   => trim($params['thumb_dir'] ?? 'thumbs_wtri', '/'),
             'alt'         => '',
             'aspectRatio' => null,
         ];

@@ -74,10 +74,10 @@ Original image:
 /images/new york/parc/parc 1.jpg
 ```
 
-Generated thumbnails:
+Generated thumbnails (with default directory otpion):
 ```
-/images/thumbnails/responsive/new york/parc/parc-<hash>-q75-640x427.jpg
-/images/thumbnails/responsive/new york/parc/parc-<hash>-q75-1280x854.webp
+/images/thumbs_wtri/new york/parc/parc-<hash>-q75-640x427.jpg
+/images/thumbs_wtri/new york/parc/parc-<hash>-q75-1280x854.webp
 ```
 
 ✔ Same subfolders  

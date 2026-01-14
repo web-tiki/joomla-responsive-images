@@ -20,7 +20,7 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
-                <field name="thumb_dir" type="text" default="thumbnails/responsive" label="Thumbnail directory" description="Where should the thumbnails be stored (relative to /images) ?" />
+                <field name="thumb_dir" type="text" default="thumbs_wtri" label="Thumbnail directory" description="Where should the thumbnails be stored (relative to /images) ?" />
                 <field name="webp" type="radio" default="1" label="WebP" description="Enable WebP generation by default">
                     <option value="1">JYES</option>
                     <option value="0">JNO</option>
