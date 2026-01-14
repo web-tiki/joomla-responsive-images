@@ -1,69 +1,104 @@
-# Joomla plugin responsive images
+# Joomla Responsive Images Plugin
 
 ![Joomla Version](https://img.shields.io/badge/Joomla-5.x-blue.svg)
 ![Joomla Version](https://img.shields.io/badge/Joomla-6.x-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 ![Build Status](https://github.com/web-tiki/joomla-responsive-images/actions/workflows/release.yml/badge.svg)
 ![Latest version](https://img.shields.io/github/v/release/web-tiki/joomla-responsive-images)
 ![Unreleased commits](https://img.shields.io/github/commits-since/web-tiki/joomla-responsive-images/latest)
 
-Latest release (dowload the plugin here ) 
-  https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
+A Joomla **system plugin** that generates **responsive images** (`srcset`, `sizes`, `<picture>`) from image custom fields and template overrides, with **safe, cacheable thumbnail generation**.
 
-
-A high-performance **system plugin for Joomla** that generates responsive, retina-ready images with WebP / AVIF support, lazy loading, and intelligent caching. This plugin is intended for developers as it requires creating template overrides to call the plugin. Each call can be customized to create different settings. The plugin was initially intended to work with the media custom field but it can also work with the default joomla intro or full images. 
-
-The plugin follows **modern Joomla best practices**:
-- business logic in a helper
-- HTML rendering via Joomla layouts
-- fully overrideable from templates
+Compatible with **Joomla 5 & Joomla 6**.
 
 ---
 
-## 🧠 Architecture Overview
+## ✨ Features
 
-The plugin is built around **Joomla layouts**, not direct HTML output.
+- Responsive image generation (`srcset`, `sizes`) with `<picture>` output
+- Preserves original image **subfolder structure**
+- Automatic thumbnail caching
+- WebP support (optional)
+- Lazy-loading support
+- Layout-based rendering (fully overrideable)
+- Secure filesystem handling (no arbitrary writes)
 
-**Flow:**
+---
 
-```mermaid
-flowchart TD
-    A[Template override] --> B[LayoutHelper::render]
-    B --> C[Layout responsiveimages.image]
-    C --> D[ResponsiveImageHelper::getProcessedData]
+## 📦 Installation
+
+1. Download the latest release:
+   https://github.com/web-tiki/joomla-responsive-images/releases/latest
+
+2. Install via **Extensions → Install**
+
+3. Enable the plugin:
+   ```
+   System → Responsive Images
+   ```
+
+---
+
+## ⚙️ Configuration
+
+### Thumbnail directory (IMPORTANT)
+
+**Setting:** `Thumbnail directory (relative to /images)`
+
+This setting controls where generated thumbnails are stored.
+
+### ✅ Correct value
+```
+thumbnails/responsive
 ```
 
-This ensures:
-- clean separation of concerns
-- compatibility with Joomla 6
-- easy template overrides
+### ❌ Incorrect value
+```
+images/thumbnails/responsive
+```
+
+> ⚠️ The path is **always relative to Joomla’s `/images` folder**.  
+> Do **NOT** include `images/` in this setting.
 
 ---
 
-## 🛠 Usage (Template Overrides)
+### 📂 Folder structure preservation
 
-Use the plugin **from template overrides** (articles, modules, custom layouts).
+The plugin **automatically preserves the original image subfolder structure**.
 
-### 1️⃣ Use `LayoutHelper` (recommended)
+#### Example
+
+Original image:
+```
+/images/new york/parc/parc 1.jpg
+```
+
+Generated thumbnails:
+```
+/images/thumbnails/responsive/new york/parc/parc-<hash>-q75-640x427.jpg
+/images/thumbnails/responsive/new york/parc/parc-<hash>-q75-1280x854.webp
+```
+
+✔ Same subfolders  
+✔ Safe paths  
+✔ CDN-friendly URLs  
+
+---
+
+## 🧩 Usage
+
+### Basic usage (template or override)
 
 ```php
 use Joomla\CMS\Layout\LayoutHelper;
-```
-
-### 2️⃣ Basic Implementation
-
-```php
-$field = $fields['main-img'] ?? null;
 
 echo LayoutHelper::render(
     'responsiveimages.image',
     [
         'field'   => $field,
         'options' => [
-            'sizes'  => '(max-width: 600px) 100vw, 100vw',
-            'widths' => [640, 900, 1280, 1920],
-        ],
+            'sizes' => '(min-width: 1024px) 50vw, 100vw'
+        ]
     ],
     JPATH_PLUGINS . '/system/responsiveimages/layouts'
 );
@@ -71,155 +106,113 @@ echo LayoutHelper::render(
 
 ---
 
-### 3️⃣ Advanced Implementation (Full Options)
+## 🧩 Usage with ALL available options
 
 ```php
+use Joomla\CMS\Layout\LayoutHelper;
+
 echo LayoutHelper::render(
     'responsiveimages.image',
     [
         'field' => $field,
         'options' => [
-            'lazy'        => true,
-            'webp'        => true,
-            'avif'        => true,
-            'alt'         => 'Alt text',
-            'sizes'       => '100vw',
-            'widths'      => [640, 1280, 1920],
-            'heights'     => null,
-            'outputDir'   => 'thumbnails/res',
-            'quality'     => 75,
-            'aspectRatio' => null,
-        ],
+            'lazy' => true,
+            'webp' => true,
+            'alt' => 'Custom fallback alt text',
+            'sizes' => '(min-width: 1200px) 50vw, 100vw',
+            'widths' => [320, 640, 1024, 1600],
+            'heights' => [300, 600, 900],
+            'quality' => 75,
+            'aspectRatio' => 1.777
+        ]
     ],
     JPATH_PLUGINS . '/system/responsiveimages/layouts'
 );
 ```
+---
+## 🧠 Option reference
+
+| Option | Type | Description |
+|------|------|-------------|
+| `lazy` | bool | Enables `loading="lazy"` |
+| `webp` | bool | Generates WebP sources |
+| `alt` | string | alt text |
+| `sizes` | string | HTML sizes attribute |
+| `widths` | array | Thumbnail widths |
+| `heights` | array | Thumbnail heights |
+| `quality` | int | Image quality (1–100) |
+| `aspectRatio` | float | Crop ratio (height / width) |
 
 ---
 
-## 📐 Layout System
+## 🎨 Layout Overrides
 
-### Default layout location
-
+Default layout:
 ```
-plugins/system/responsiveimages/layouts/
-└─ responsiveimages/
-   └─ image.php
+plugins/system/responsiveimages/layouts/responsiveimages/image.php
 ```
 
-### Template override support
-
+Template override:
 ```
-templates/<your_template>/html/layouts/
-└─ responsiveimages/
-   └─ image.php
+templates/YOUR_TEMPLATE/html/layouts/responsiveimages/image.php
 ```
 
 ---
 
-## 🔁 Migration Notes (Old versions → Layout-based)
+## 🔐 Security Design
 
-**Before (deprecated):**
+- Thumbnails always stay inside `/images`
+- Original images must be inside `/images`
+- Sanitized paths
+- No directory traversal
+- Safe concurrent generation
 
-```php
-echo ResponsiveImageHelper::render($field, $options);
+---
+
+## 🚀 Performance & Caching
+
+- Thumbnails generated once
+- Hash-based cache invalidation
+- Subfolder mirroring improves FS performance
+
+---
+
+## 🛠️ Supported Formats
+
+- JPEG
+- PNG
+- SVG
+- WebP (optional)
+
+---
+
+## 🧪 Compatibility
+
+| Joomla Version | Status |
+|---------------|--------|
+| Joomla 6.x | ✅ |
+| Joomla 5.x | ✅ |
+
+---
+
+## ✅ Requirements
+
+Server :
+
+- PHP ≥ 8.1
+- Imagick PHP extension enabled
+- ImageMagick compiled with support for:
+  - JPEG
+  - PNG
+  - WebP (recommended)
+
+**ℹ️ Without Imagick, the plugin cannot generate thumbnails and will not function.**
+
+You can verify Imagick with:
+```
+php -m | grep imagick
 ```
 
-**Now (Joomla 6 compliant):**
+## 📄 License
 
-```php
-echo LayoutHelper::render(
-    'responsiveimages.image',
-    ['field' => $field, 'options' => $options],
-    JPATH_PLUGINS . '/system/responsiveimages/layouts'
-);
-```
-
-Benefits:
-- Joomla-native rendering
-- overrideable layouts
-- no HTML in helpers
-
----
-
-## 🧩 Helper API (Internal)
-
-### `ResponsiveImageHelper::getProcessedData()`
-
-```php
-array getProcessedData(array $context)
-```
-
-**Input:**
-- `field` (Joomla media field)
-- `options` (array)
-
-**Returns:**
-```php
-[
-  'srcset'   => string,
-  'fallback'=> string,
-  'sizes'   => string,
-  'alt'     => string,
-  'webp'    => ?string,
-  'avif'    => ?string,
-]
-```
-
-This method **never outputs HTML**.
-
----
-
-## ⚙️ Plugin Configuration
-
-System → Manage → Plugins → System – Responsive Images
-
-- Thumbnail directory
-- Global quality
-- Lazy loading default
-- WebP / AVIF enablement
-- Cache strategy
-
-Per-call options always override global defaults.
-
----
-
-## 📦 Joomla Extensions Directory Compliance
-
-✔ No core overrides  
-✔ No global state modification  
-✔ Layout-based rendering  
-✔ Namespaced PHP  
-✔ Joomla 6 / PHP 8.1+ compatible  
-
----
-
-## 🚀 Releasing a New Version
-
-1. Update versions:
-   - `update.xml`
-   - `responsiveimages.xml`
-
-2. Commit & push to `main`
-
-3. Tag the release:
-```powershell
-git tag v0.0.3
-git push origin v0.0.3
-```
-
-GitHub Actions will publish the ZIP automatically.
-
----
-
-## 🔗 Links
-
-- Update server  
-  https://raw.githubusercontent.com/web-tiki/joomla-responsive-images/main/update.xml
-
-- Latest release (dowload the plugin here ) 
-  https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
-
----
-
-Developed by [web-tiki](https://web-tiki.com/)
+GPL v2 or later
