@@ -36,7 +36,7 @@ final class ResponsiveImageHelper
         $root = realpath(JPATH_ROOT);
 
         if (!$real || !$root || !str_starts_with(str_replace('\\','/', $real), str_replace('\\','/', $root))) {
-            throw new RuntimeException('Invalid image path or outside Joomla root');
+            throw new RuntimeException('Invalid image path or outside Joomla root : ' . $root . ' // real : ' . $real . ' // path : ' . $path);
         }
 
         return $real;
@@ -173,32 +173,30 @@ final class ResponsiveImageHelper
 
         /* ---------------- Normalize path ---------------- */
 
-        $path = explode('#', $path, 2)[0];
-        $path = rawurldecode($path);
-        $path = str_replace(['\\','\/'], DIRECTORY_SEPARATOR, $path);
+        $path = rawurldecode(explode('#', $path, 2)[0]);
+        $path = str_replace('\\', '/', $path);
 
-        if (!str_starts_with($path, JPATH_ROOT)) {
-            $path = rtrim(JPATH_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
-            $path = preg_replace('#/images/images/#', '/images/', $path, 1);
+        // If already absolute (Linux or Windows), keep it
+        $isAbsolute =
+            str_starts_with($path, '/') ||
+            preg_match('#^[A-Za-z]:/#', $path);
+
+        // If relative, prepend JPATH_ROOT
+        if (!$isAbsolute) {
+            $path = rtrim(JPATH_ROOT, '/') . '/' . ltrim($path, '/');
         }
 
-        $segments = [];
-        foreach (explode(DIRECTORY_SEPARATOR, $path) as $seg) {
-            if ($seg === '' || $seg === '.') continue;
-            if ($seg === '..') array_pop($segments);
-            else $segments[] = $seg;
-        }
-        $path = implode(DIRECTORY_SEPARATOR, $segments);
+        // Fix duplicated images/images
+        $path = preg_replace('#/images/images/#', '/images/', $path, 1);
 
-        try {
-            $path = self::assertInsideRoot($path);
-        } catch (\RuntimeException $e) {
-            return self::fail($e->getMessage());
+        // Now resolve
+        $real = realpath($path);
+        if ($real === false) {
+            return self::fail('Image file not found on disk: ' . $path);
         }
 
-        if (!is_file($path)) {
-            return self::fail('Image file not found: ' . $path);
-        }
+        $path = $real;
+
 
         $info = pathinfo($path);
         $ext  = strtolower($info['extension'] ?? '');
@@ -348,6 +346,8 @@ final class ResponsiveImageHelper
                         return self::fail('Failed to write thumbnail: ' . basename($file));
                     }
 
+                    chmod($file, 0644);
+
                     $t->clear();
                 }
 
@@ -362,6 +362,8 @@ final class ResponsiveImageHelper
                     if (!rename($tmp, $webp)) {
                         return self::fail('Failed to write WebP thumbnail: ' . basename($webp));
                     }
+
+                    chmod($webp, 0644);
 
                     $t->clear();
                 }
