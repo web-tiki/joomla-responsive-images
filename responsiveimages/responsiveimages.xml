@@ -5,6 +5,10 @@
     <namespace path="src">WebTiki\Plugin\System\ResponsiveImages</namespace>
     <author>web-tiki</author>
     <creationDate>January 2026</creationDate>
+    <authorUrl>web-tiki.com</authorUrl>
+    <copyright>(C) 2026 Daniel Molinier</copyright>
+    <license>GNU General Public License version 2 or later; see LICENSE</license>
+    <authorEmail>hello@web-tiki.com</authorEmail>
     <version>0.0.12</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
