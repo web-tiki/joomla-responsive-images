@@ -29,7 +29,7 @@
                     <option value="1">JYES</option>
                     <option value="0">JNO</option>
                 </field>
-                <field name="widths" type="text" default="640, 1280, 1920" label="Thumb widths" description="Comma-separated list of widths for thumbnails" />
+                <field name="widths" type="text" default="480, 800, 1200, 1600, 2000, 2560" label="Thumb widths" description="Comma-separated list of widths for thumbnails" />
                 <field name="sizes" type="text" default="100vw" label="Sizes attribute" description="Default sizes attribute for responsive images" />
                 <field name="quality" type="number" default="75" label="Image Quality" description="Quality for generated images (1-100) works only for webp and jpeg" />
             </fieldset>

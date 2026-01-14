@@ -133,7 +133,7 @@ final class ResponsiveImageHelper
             'lazy'        => (bool)($params['lazy'] ?? true),
             'webp'        => (bool)($params['webp'] ?? true),
             'sizes'       => (string)($params['sizes'] ?? '100vw'),
-            'widths'      => array_map('intval', explode(',', $params['widths'] ?? '640,1280,1920')),
+            'widths'      => array_map('intval', explode(',', $params['widths'] ?? '480, 800, 1200, 1600, 2000, 2560')),
             'quality'     => max(1, min(100, (int)($params['quality'] ?? 75))),
             'outputDir'   => trim($params['thumb_dir'] ?? 'responsive-images', '/'),
             'alt'         => '',
