@@ -96,20 +96,30 @@ Generated thumbnails (default directory : responsive-images ):
 
 ### Basic usage (template or override)
 
+
+
 ```php
 use Joomla\CMS\Layout\LayoutHelper;
 
-echo LayoutHelper::render(
-    'responsiveimages.image',
-    [
-        'field'   => $field,
-        'options' => [
-            'sizes' => '(min-width: 1024px) 50vw, 100vw'
-        ]
-    ],
-    JPATH_PLUGINS . '/system/responsiveimages/layouts'
-);
+echo LayoutHelper::render('responsiveimages.image',['field' => $field],JPATH_PLUGINS . '/system/responsiveimages/layouts');
 ```
+This will use all the default options to generate the thumbnails :
+*(Most of these default values are customizable in the plugin options.)*
+
+```php
+$defaults = [
+    'lazy'        => true,
+    'webp'        => true,
+    'sizes'       => '100vw',
+    'widths'      => '480, 800, 1200, 1600, 2000, 2560',
+    'quality'     => 75,
+    'outputDir'   => 'responsive-images',
+    'alt'         => '',
+    'aspectRatio' => null,
+];
+```
+
+The alt from the image media field will still be used if it exists and the image aspect ratio of the original image will be respected.
 
 ---
 
