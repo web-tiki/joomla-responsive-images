@@ -137,15 +137,19 @@ final class ResponsiveImageHelper
 
         /* ---------------- Parse field ---------------- */
 
+        // Normalize $imageField to array
         if (is_string($imageField)) {
             $imageField = json_decode($imageField, true);
-            if (!is_array($imageField)) {
-                return self::fail('Invalid image field JSON');
-            }
+        } elseif (is_object($imageField)) {
+            $imageField = (array) $imageField;
         }
 
-        $path = $imageField['imagefile'] ?? $imageField->imagefile ?? '';
-        $alt  = $imageField['alt_text'] ?? $imageField->alt_text ?? '';
+        if (!is_array($imageField)) {
+            return self::fail('Invalid image field');
+        }
+
+        $path = $imageField['imagefile'] ?? '';
+        $alt  = $imageField['alt_text'] ?? '';
 
         if (!$path) {
             // if the path is empty ( = the media field is empty), don't diaply errors
