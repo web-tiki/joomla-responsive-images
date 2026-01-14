@@ -115,7 +115,19 @@ final class ResponsiveImageHelper
         /* ---------------- Plugin defaults ---------------- */
 
         $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
-        $params = $plugin->params ? json_decode($plugin->params, true) : [];
+
+        // If plugin is disabled or not found → do nothing
+        if (!is_object($plugin)) {
+            return [
+                'ok'    => true,
+                'error' => null,
+                'data'  => null,
+            ];
+        }
+        
+        if (is_object($plugin) && isset($plugin->params)) {
+            $params = json_decode((string) $plugin->params, true) ?: [];
+        }
 
         $defaults = [
             'lazy'        => (bool)($params['lazy'] ?? true),

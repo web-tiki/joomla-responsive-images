@@ -22,6 +22,11 @@ if (!class_exists(ResponsiveImageHelper::class)) {
 
 $result = ResponsiveImageHelper::getProcessedData($field, $options);
 
+// Silent exit if plugin disabled
+if ($result['ok'] && empty($result['data'])) {
+    return;
+}
+
 if (!$result['ok']) {
     echo '<!-- ResponsiveImages error: ' .
          htmlspecialchars($result['error'], ENT_QUOTES) .
