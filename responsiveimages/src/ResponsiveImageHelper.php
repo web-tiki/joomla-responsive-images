@@ -63,6 +63,32 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
+     * Get svg image dimensions
+     * ========================================================== */
+    private static function getSvgDimensions(string $path): array
+    {
+        $w = $h = null;
+        $svg = @file_get_contents($path);
+        if (!$svg) {
+            return [$w, $h];
+        }
+
+        // Match width/height attributes
+        if (preg_match('/<svg[^>]+width=["\']?([\d.]+)(?:px)?["\']?[^>]*height=["\']?([\d.]+)(?:px)?["\']?/i', $svg, $matches)) {
+            $w = (int) $matches[1];
+            $h = (int) $matches[2];
+        } 
+        // Fallback: viewBox
+        elseif (preg_match('/viewBox=["\']?([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)["\']?/i', $svg, $matches)) {
+            $w = (int) $matches[3];
+            $h = (int) $matches[4];
+        }
+
+        return [$w, $h];
+    }
+
+
+    /* ==========================================================
      * Error handling
      * ========================================================== */
 
@@ -174,23 +200,24 @@ final class ResponsiveImageHelper
         $ext  = strtolower($info['extension'] ?? '');
 
         /* ---------------- SVG shortcut ---------------- */
-
         if ($ext === 'svg') {
-            [$w, $h] = getimagesize($path) ?: [0, 0];
-
+            $src = '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', str_replace(JPATH_ROOT, '', $path)), '/');
+            [$w, $h] = self::getSvgDimensions($path);
+        
             return [
                 'ok'    => true,
                 'error' => null,
                 'data'  => [
                     'isSvg'   => true,
-                    'src'     => '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $path)),
+                    'src'     => $src,
                     'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-                    'width'   => $w,
-                    'height'  => $h,
+                    'width'   => $w ?: null,  // keep null if not found
+                    'height'  => $h ?: null,
                     'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
                 ],
             ];
-        }
+        }        
+
 
         /* ---------------- Image metadata ---------------- */
 
