@@ -20,8 +20,18 @@ if (!class_exists(ResponsiveImageHelper::class)) {
     return;
 }
 
-$data = ResponsiveImageHelper::getProcessedData($field, $options);
+$result = ResponsiveImageHelper::getProcessedData($field, $options);
 
+if (!$result['ok']) {
+    echo '<!-- ResponsiveImages error: ' .
+         htmlspecialchars($result['error'], ENT_QUOTES) .
+         ' -->';
+    return;
+}
+
+$data = $result['data'];
+
+// Safety check and if no image is given, display nothing
 if (empty($data)) {
     return;
 }

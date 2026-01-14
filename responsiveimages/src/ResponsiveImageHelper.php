@@ -6,7 +6,7 @@ declare(strict_types=1);
  * @subpackage  System.ResponsiveImages
  *
  * @copyright   (C) 2026 web-tiki
- * @license     GNU General Public License version 2 or later;
+ * @license     GNU General Public License version 2 or later
  */
 
 namespace WebTiki\Plugin\System\ResponsiveImages;
@@ -16,6 +16,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Plugin\PluginHelper;
 use Imagick;
 use RuntimeException;
+use Throwable;
 
 final class ResponsiveImageHelper
 {
@@ -34,8 +35,8 @@ final class ResponsiveImageHelper
         $real = realpath($path);
         $root = realpath(JPATH_ROOT);
 
-        if (!$real || !$root || !str_starts_with($real, $root)) {
-            throw new RuntimeException('Invalid image path');
+        if (!$real || !$root || !str_starts_with(str_replace('\\','/', $real), str_replace('\\','/', $root))) {
+            throw new RuntimeException('Invalid image path or outside Joomla root');
         }
 
         return $real;
@@ -62,6 +63,19 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
+     * Error handling
+     * ========================================================== */
+
+    private static function fail(string $message): array
+    {
+        return [
+            'ok'    => false,
+            'error' => $message,
+            'data'  => null,
+        ];
+    }
+
+    /* ==========================================================
      * Public API
      * ========================================================== */
 
@@ -70,7 +84,7 @@ final class ResponsiveImageHelper
         array $options = []
     ): array {
         if (!$imageField) {
-            return [];
+            return self::fail('Empty image field');
         }
 
         /* ---------------- Plugin defaults ---------------- */
@@ -91,24 +105,69 @@ final class ResponsiveImageHelper
 
         $opt = array_merge($defaults, $options);
 
+        if (empty($opt['widths']) || !is_array($opt['widths'])) {
+            return self::fail('Invalid widths configuration');
+        }
+
         /* ---------------- Parse field ---------------- */
 
         if (is_string($imageField)) {
             $imageField = json_decode($imageField, true);
+            if (!is_array($imageField)) {
+                return self::fail('Invalid image field JSON');
+            }
         }
 
         $path = $imageField['imagefile'] ?? $imageField->imagefile ?? '';
         $alt  = $imageField['alt_text'] ?? $imageField->alt_text ?? '';
 
         if (!$path) {
-            return [];
+            // if the path is empty ( = the media field is empty), don't diaply errors
+            return [
+                'ok'    => true,
+                'error' => null,
+                'data'  => null,
+            ];
         }
 
-        $path = str_replace('%20', ' ', $path);
-        $path = self::assertInsideRoot($path);
+        // -----------------------------
+        // Normalize Joomla media paths
+        // -----------------------------
 
+        // 1. Strip fragment (#...) completely (e.g., joomlaImage://...)
+        $path = explode('#', $path, 2)[0];
+
+        // 2. Decode URL-encoded characters
+        $path = rawurldecode($path);
+
+        // 3. Normalize slashes
+        $path = str_replace(['\\','\/'], DIRECTORY_SEPARATOR, $path);
+
+        // 4. If path is relative, assume relative to /images
+        if (!str_starts_with($path, JPATH_ROOT)) {
+            $path = rtrim(JPATH_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+            $path = preg_replace('#/images/images/#', '/images/', $path, 1);
+        }
+
+        // 5. Normalize . and .. segments
+        $segments = [];
+        foreach (explode(DIRECTORY_SEPARATOR, $path) as $seg) {
+            if ($seg === '' || $seg === '.') continue;
+            if ($seg === '..') array_pop($segments);
+            else $segments[] = $seg;
+        }
+        $path = implode(DIRECTORY_SEPARATOR, $segments);
+
+        // 6. Ensure path is inside Joomla root
+        try {
+            $path = self::assertInsideRoot($path);
+        } catch (\RuntimeException $e) {
+            return self::fail($e->getMessage());
+        }
+
+        // 7. Check file exists
         if (!is_file($path)) {
-            return [];
+            return self::fail('Image file not found: ' . $path);
         }
 
         $info = pathinfo($path);
@@ -120,20 +179,24 @@ final class ResponsiveImageHelper
             [$w, $h] = getimagesize($path) ?: [0, 0];
 
             return [
-                'isSvg'   => true,
-                'src'     => '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $path)),
-                'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-                'width'   => $w,
-                'height'  => $h,
-                'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
+                'ok'    => true,
+                'error' => null,
+                'data'  => [
+                    'isSvg'   => true,
+                    'src'     => '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $path)),
+                    'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
+                    'width'   => $w,
+                    'height'  => $h,
+                    'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
+                ],
             ];
         }
 
         /* ---------------- Image metadata ---------------- */
 
-        [$ow, $oh] = getimagesize($path);
+        [$ow, $oh] = getimagesize($path) ?: [0, 0];
         if (!$ow || !$oh) {
-            return [];
+            return self::fail('Unable to read image dimensions');
         }
 
         $ratio = $oh / $ow;
@@ -145,32 +208,27 @@ final class ResponsiveImageHelper
             $ratio = $oh / $ow;
         }
 
-        /* ---------------- Output dir ---------------- */
+        /* ---------------- Output directory ---------------- */
 
-        // Ensure original image is inside /images
         $imagesRoot = realpath(JPATH_ROOT . '/images');
         $realImage  = realpath($path);
 
         if (!$imagesRoot || !$realImage || !str_starts_with($realImage, $imagesRoot)) {
-            return [];
+            return self::fail('Image is outside /images directory');
         }
 
-        // Relative directory inside /images (e.g. new york/parc)
         $relativeDir = trim(
             str_replace($imagesRoot, '', dirname($realImage)),
             DIRECTORY_SEPARATOR
         );
 
-        // Final thumbnail base directory
         $outBase = JPATH_ROOT . '/images/' . trim($opt['outputDir'], '/');
-
         if ($relativeDir !== '') {
             $outBase .= '/' . $relativeDir;
         }
 
-        // Create directory safely
         if (!is_dir($outBase) && !mkdir($outBase, 0755, true)) {
-            return [];
+            return self::fail('Failed to create thumbnail directory : ' . $outBase);
         }
 
         $hash = substr(md5($path . filemtime($path)), 0, 8);
@@ -180,12 +238,10 @@ final class ResponsiveImageHelper
         $jobs = [];
 
         foreach ($opt['widths'] as $w) {
-            $w = min($w, $ow);
+            $w = min((int)$w, $ow);
             $h = (int) round($w * $ratio);
 
-            if ($w <= 0 || $h <= 0) {
-                continue;
-            }
+            if ($w <= 0 || $h <= 0) continue;
 
             $base = sprintf(
                 '%s/%s-%s-q%d-%dx%d',
@@ -208,11 +264,26 @@ final class ResponsiveImageHelper
             }
         }
 
-        /* ---------------- Locked generation ---------------- */
+        if (empty($jobs)) {
+            return self::fail('No valid thumbnail sizes generated');
+        }
+
+        if (!class_exists(Imagick::class)) {
+            return self::fail('Imagick extension is not available');
+        }
 
         $lock = fopen($outBase . '/.lock', 'c');
-        if ($lock && flock($lock, LOCK_EX)) {
-            $img = new Imagick($path);
+        if (!$lock) {
+            return self::fail('Unable to create lock file');
+        }
+
+        if (flock($lock, LOCK_EX)) {
+            try {
+                $img = new Imagick($path);
+            } catch (Throwable) {
+                fclose($lock);
+                return self::fail('Imagick failed to load image');
+            }
 
             if ($crop) {
                 $img->cropImage(...$crop);
@@ -227,7 +298,11 @@ final class ResponsiveImageHelper
                     $t->setImageFormat($ext);
                     $t->setImageCompressionQuality($opt['quality']);
                     $t->writeImage($tmp);
-                    rename($tmp, $file);
+
+                    if (!rename($tmp, $file)) {
+                        return self::fail('Failed to write thumbnail: ' . basename($file));
+                    }
+
                     $t->clear();
                 }
 
@@ -238,7 +313,11 @@ final class ResponsiveImageHelper
                     $t->setImageFormat('webp');
                     $t->setImageCompressionQuality($opt['quality']);
                     $t->writeImage($tmp);
-                    rename($tmp, $webp);
+
+                    if (!rename($tmp, $webp)) {
+                        return self::fail('Failed to write WebP thumbnail: ' . basename($webp));
+                    }
+
                     $t->clear();
                 }
             }
@@ -247,24 +326,26 @@ final class ResponsiveImageHelper
             flock($lock, LOCK_UN);
         }
 
-        if ($lock) {
-            fclose($lock);
-        }
+        fclose($lock);
 
         $fallback = explode(' ', end($srcset))[0];
 
         return [
-            'isSvg'      => false,
-            'srcset'     => implode(', ', $srcset),
-            'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetWebp) : null,
-            'fallback'   => $fallback,
-            'sizes'      => htmlspecialchars($opt['sizes'], ENT_QUOTES),
-            'alt'        => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-            'width'      => $ow,
-            'height'     => $oh,
-            'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
-            'decoding'   => 'decoding="async"',
-            'extension'  => $ext,
+            'ok'    => true,
+            'error' => null,
+            'data'  => [
+                'isSvg'      => false,
+                'srcset'     => implode(', ', $srcset),
+                'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetWebp) : null,
+                'fallback'   => $fallback,
+                'sizes'      => htmlspecialchars($opt['sizes'], ENT_QUOTES),
+                'alt'        => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
+                'width'      => $ow,
+                'height'     => $oh,
+                'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
+                'decoding'   => 'decoding="async"',
+                'extension'  => $ext,
+            ],
         ];
     }
 }
