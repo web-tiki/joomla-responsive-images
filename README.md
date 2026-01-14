@@ -29,7 +29,8 @@ Compatible with **Joomla 5 & Joomla 6**.
 ## 📦 Installation
 
 1. Download the latest release:
-   https://github.com/web-tiki/joomla-responsive-images/releases/latest
+   https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
+   [All releases](https://github.com/web-tiki/joomla-responsive-images/releases)
 
 2. Install via **Extensions → Install**
 
@@ -215,3 +216,6 @@ php -m | grep imagick
 ## 📄 License
 
 GPL v2 or later
+
+---
+Created by [web-tiki](https://web-tiki.com/)
