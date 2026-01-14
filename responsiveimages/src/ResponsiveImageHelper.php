@@ -87,7 +87,6 @@ final class ResponsiveImageHelper
         return [$w, $h];
     }
 
-
     /* ==========================================================
      * Error handling
      * ========================================================== */
@@ -160,26 +159,17 @@ final class ResponsiveImageHelper
             ];
         }
 
-        // -----------------------------
-        // Normalize Joomla media paths
-        // -----------------------------
+        /* ---------------- Normalize path ---------------- */
 
-        // 1. Strip fragment (#...) completely (e.g., joomlaImage://...)
         $path = explode('#', $path, 2)[0];
-
-        // 2. Decode URL-encoded characters
         $path = rawurldecode($path);
-
-        // 3. Normalize slashes
         $path = str_replace(['\\','\/'], DIRECTORY_SEPARATOR, $path);
 
-        // 4. If path is relative, assume relative to /images
         if (!str_starts_with($path, JPATH_ROOT)) {
             $path = rtrim(JPATH_ROOT, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
             $path = preg_replace('#/images/images/#', '/images/', $path, 1);
         }
 
-        // 5. Normalize . and .. segments
         $segments = [];
         foreach (explode(DIRECTORY_SEPARATOR, $path) as $seg) {
             if ($seg === '' || $seg === '.') continue;
@@ -188,14 +178,12 @@ final class ResponsiveImageHelper
         }
         $path = implode(DIRECTORY_SEPARATOR, $segments);
 
-        // 6. Ensure path is inside Joomla root
         try {
             $path = self::assertInsideRoot($path);
         } catch (\RuntimeException $e) {
             return self::fail($e->getMessage());
         }
 
-        // 7. Check file exists
         if (!is_file($path)) {
             return self::fail('Image file not found: ' . $path);
         }
@@ -203,7 +191,7 @@ final class ResponsiveImageHelper
         $info = pathinfo($path);
         $ext  = strtolower($info['extension'] ?? '');
 
-        /* ---------------- SVG shortcut ---------------- */
+        /* ---------------- SVG handling ---------------- */
         if ($ext === 'svg') {
             $src = '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', str_replace(JPATH_ROOT, '', $path)), '/');
             [$w, $h] = self::getSvgDimensions($path);
@@ -215,15 +203,14 @@ final class ResponsiveImageHelper
                     'isSvg'   => true,
                     'src'     => $src,
                     'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-                    'width'   => $w ?: null,  // keep null if not found
+                    'width'   => $w ?: null,
                     'height'  => $h ?: null,
                     'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
                 ],
             ];
-        }        
+        }
 
-
-        /* ---------------- Image metadata ---------------- */
+        /* ---------------- Raster image handling ---------------- */
 
         [$ow, $oh] = getimagesize($path) ?: [0, 0];
         if (!$ow || !$oh) {
@@ -268,12 +255,27 @@ final class ResponsiveImageHelper
         $srcsetWebp = [];
         $jobs = [];
 
-        foreach ($opt['widths'] as $w) {
-            $w = min((int)$w, $ow);
+        // Remove duplicate widths and sort ascending
+        $widths = array_unique(array_map('intval', $opt['widths']));
+        sort($widths);
+
+        foreach ($widths as $w) {
+            // Never overscale
+            if ($w > $ow) {
+                $w = $ow;
+            }
+        
             $h = (int) round($w * $ratio);
-
-            if ($w <= 0 || $h <= 0) continue;
-
+        
+            if ($w <= 0 || $h <= 0) {
+                continue;
+            }
+        
+            // Avoid duplicate jobs if width already processed
+            if (in_array($w, array_column($jobs, 2), true)) {
+                continue;
+            }
+        
             $base = sprintf(
                 '%s/%s-%s-q%d-%dx%d',
                 $outBase,
@@ -283,12 +285,12 @@ final class ResponsiveImageHelper
                 $w,
                 $h
             );
-
+        
             $file = $base . '.' . $ext;
             $webp = $base . '.webp';
-
+        
             $jobs[] = [$file, $webp, $w, $h];
-
+        
             $srcset[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $file)) . " {$w}w";
             if ($opt['webp']) {
                 $srcsetWebp[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $webp)) . " {$w}w";

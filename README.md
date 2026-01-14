@@ -122,7 +122,6 @@ echo LayoutHelper::render(
             'alt' => 'Custom fallback alt text',
             'sizes' => '(min-width: 1200px) 50vw, 100vw',
             'widths' => [320, 640, 1024, 1600],
-            'heights' => [300, 600, 900],
             'quality' => 75,
             'aspectRatio' => 1.777
         ]
@@ -140,7 +139,6 @@ echo LayoutHelper::render(
 | `alt` | string | alt text |
 | `sizes` | string | HTML sizes attribute |
 | `widths` | array | Thumbnail widths |
-| `heights` | array | Thumbnail heights |
 | `quality` | int | Image quality (1–100) |
 | `aspectRatio` | float | Crop ratio (height / width) |
 
