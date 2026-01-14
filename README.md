@@ -19,9 +19,10 @@ Compatible with **Joomla 5 & Joomla 6**.
 - Preserves original image **subfolder structure**
 - Automatic thumbnail caching
 - WebP support (optional)
-- Lazy-loading support
+- Lazy-loading support (optional)
 - Layout-based rendering (fully overrideable)
 - Secure filesystem handling (no arbitrary writes)
+- svg source images support
 
 ---
 
