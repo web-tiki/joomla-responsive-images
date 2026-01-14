@@ -42,6 +42,8 @@ Compatible with **Joomla 5 & Joomla 6**.
    ```
 
 [Find all releases here](https://github.com/web-tiki/joomla-responsive-images/releases)
+
+
 ---
 
 ## ⚙️ Configuration
