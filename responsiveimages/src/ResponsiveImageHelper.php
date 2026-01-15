@@ -14,6 +14,7 @@ namespace WebTiki\Plugin\System\ResponsiveImages;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\Filesystem\Folder;
 use Imagick;
 use RuntimeException;
 use Throwable;
@@ -286,17 +287,9 @@ final class ResponsiveImageHelper
             $thumbnailsBasePath .= '/' . $relativeDirectory;
         }
 
-        $thumbnailsBasePath = rtrim($thumbnailsBasePath, DIRECTORY_SEPARATOR);
-
-        if (!is_dir($thumbnailsBasePath)) {
-            $oldUmask = umask(0);
-            if (!mkdir($thumbnailsBasePath, 0755, true) && !is_dir($thumbnailsBasePath)) {
-                umask($oldUmask);
-                return self::fail('Failed to create thumbnail directory: ' . $thumbnailsBasePath);
-            }
-            umask($oldUmask);
+        if (!is_dir($thumbnailsBasePath) && !mkdir($thumbnailsBasePath, 0755, true)) {
+            return self::fail('Failed to create thumbnail directory: ' . $thumbnailsBasePath);
         }
-
 
         $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
 
