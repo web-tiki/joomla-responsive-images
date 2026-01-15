@@ -196,7 +196,7 @@ templates/YOUR_TEMPLATE/html/layouts/responsiveimages/image.php
 
 - JPEG
 - PNG
-- SVG
+- SVG (SVG images are not resized and are rendered as <img> elements)
 - WebP (optional)
 
 ---
@@ -227,6 +227,16 @@ You can verify Imagick with:
 ```
 php -m | grep imagick
 ```
+
+## ResponsiveImageHelper::getProcessedData()
+
+Returns:
+- ok = true, data = null → nothing rendered
+- ok = true, data = array → image data
+- ok = false → error (HTML comment only)
+
+The helper NEVER throws exceptions.
+
 
 ## 📄 License
 

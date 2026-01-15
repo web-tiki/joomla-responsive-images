@@ -24,67 +24,83 @@ final class ResponsiveImageHelper
      * Path & URL helpers
      * ========================================================== */
 
-    private static function safeUrl(string $path): string
+    private static function encodeUrlPath(string $path): string
     {
         $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
-        return implode('/', array_map('rawurlencode', explode('/', $path)));
-    }
 
-    private static function assertInsideRoot(string $path): string
-    {
-        $real = realpath($path);
-        $root = realpath(JPATH_ROOT);
-
-        if (!$real || !$root || !str_starts_with(str_replace('\\','/', $real), str_replace('\\','/', $root))) {
-            throw new RuntimeException('Invalid image path or outside Joomla root : ' . $root . ' // real : ' . $real . ' // path : ' . $path);
-        }
-
-        return $real;
+        return implode(
+            '/',
+            array_map('rawurlencode', explode('/', $path))
+        );
     }
 
     /* ==========================================================
      * Image helpers
      * ========================================================== */
 
-    private static function calculateCrop(
-        int $ow,
-        int $oh,
-        float $ratio
+    private static function calculateCropBox(
+        int $originalWidth,
+        int $originalHeight,
+        float $aspectRatio
     ): array {
-        $or = $oh / $ow;
+        $originalRatio = $originalHeight / $originalWidth;
 
-        if ($or > $ratio) {
-            $h = (int) round($ow * $ratio);
-            return [$ow, $h, 0, (int)(($oh - $h) / 2)];
+        if ($originalRatio > $aspectRatio) {
+            $targetHeight = (int) round($originalWidth * $aspectRatio);
+
+            return [
+                $originalWidth,
+                $targetHeight,
+                0,
+                (int) (($originalHeight - $targetHeight) / 2),
+            ];
         }
 
-        $w = (int) round($oh / $ratio);
-        return [$w, $oh, (int)(($ow - $w) / 2), 0];
+        $targetWidth = (int) round($originalHeight / $aspectRatio);
+
+        return [
+            $targetWidth,
+            $originalHeight,
+            (int) (($originalWidth - $targetWidth) / 2),
+            0,
+        ];
     }
 
     /* ==========================================================
-     * Get svg image dimensions
+     * SVG helpers
      * ========================================================== */
-    private static function getSvgDimensions(string $path): array
+
+    private static function getSvgDimensions(string $absolutePath): array
     {
-        $w = $h = null;
-        $svg = @file_get_contents($path);
-        if (!$svg) {
-            return [$w, $h];
+        $width  = null;
+        $height = null;
+
+        $svgContent = @file_get_contents($absolutePath);
+        if (!$svgContent) {
+            return [$width, $height];
         }
 
-        // Match width/height attributes
-        if (preg_match('/<svg[^>]+width=["\']?([\d.]+)(?:px)?["\']?[^>]*height=["\']?([\d.]+)(?:px)?["\']?/i', $svg, $matches)) {
-            $w = (int) $matches[1];
-            $h = (int) $matches[2];
-        } 
-        // Fallback: viewBox
-        elseif (preg_match('/viewBox=["\']?([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)["\']?/i', $svg, $matches)) {
-            $w = (int) $matches[3];
-            $h = (int) $matches[4];
+        if (
+            preg_match(
+                '/<svg[^>]+width=["\']?([\d.]+)(?:px)?["\']?[^>]*height=["\']?([\d.]+)(?:px)?["\']?/i',
+                $svgContent,
+                $matches
+            )
+        ) {
+            $width  = (int) $matches[1];
+            $height = (int) $matches[2];
+        } elseif (
+            preg_match(
+                '/viewBox=["\']?([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)["\']?/i',
+                $svgContent,
+                $matches
+            )
+        ) {
+            $width  = (int) $matches[3];
+            $height = (int) $matches[4];
         }
 
-        return [$w, $h];
+        return [$width, $height];
     }
 
     /* ==========================================================
@@ -116,7 +132,7 @@ final class ResponsiveImageHelper
 
         $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
 
-        // If plugin is disabled or not found → do nothing
+        // Plugin disabled → do nothing
         if (!is_object($plugin)) {
             return [
                 'ok'    => true,
@@ -124,31 +140,34 @@ final class ResponsiveImageHelper
                 'data'  => null,
             ];
         }
-        
-        if (is_object($plugin) && isset($plugin->params)) {
-            $params = json_decode((string) $plugin->params, true) ?: [];
+
+        $pluginParams = [];
+        if (isset($plugin->params)) {
+            $pluginParams = json_decode((string) $plugin->params, true) ?: [];
         }
 
-        $defaults = [
-            'lazy'        => (bool)($params['lazy'] ?? true),
-            'webp'        => (bool)($params['webp'] ?? true),
-            'sizes'       => (string)($params['sizes'] ?? '100vw'),
-            'widths'      => array_map('intval', explode(',', $params['widths'] ?? '480, 800, 1200, 1600, 2000, 2560')),
-            'quality'     => max(1, min(100, (int)($params['quality'] ?? 75))),
-            'outputDir'   => trim($params['thumb_dir'] ?? 'responsive-images', '/'),
+        $defaultOptions = [
+            'lazy'        => (bool) ($pluginParams['lazy'] ?? true),
+            'webp'        => (bool) ($pluginParams['webp'] ?? true),
+            'sizes'       => (string) ($pluginParams['sizes'] ?? '100vw'),
+            'widths'      => array_map(
+                'intval',
+                explode(',', $pluginParams['widths'] ?? '480,800,1200,1600,2000,2560')
+            ),
+            'quality'     => max(1, min(100, (int) ($pluginParams['quality'] ?? 75))),
+            'outputDir'   => trim($pluginParams['thumb_dir'] ?? 'responsive-images', '/'),
             'alt'         => '',
             'aspectRatio' => null,
         ];
 
-        $opt = array_merge($defaults, $options);
+        $options = array_merge($defaultOptions, $options);
 
-        if (empty($opt['widths']) || !is_array($opt['widths'])) {
+        if (empty($options['widths']) || !is_array($options['widths'])) {
             return self::fail('Invalid widths configuration');
         }
 
-        /* ---------------- Parse field ---------------- */
+        /* ---------------- Normalize field ---------------- */
 
-        // Normalize $imageField to array
         if (is_string($imageField)) {
             $imageField = json_decode($imageField, true);
         } elseif (is_object($imageField)) {
@@ -159,11 +178,11 @@ final class ResponsiveImageHelper
             return self::fail('Invalid image field');
         }
 
-        $path = $imageField['imagefile'] ?? '';
-        $alt  = $imageField['alt_text'] ?? '';
+        $sourcePath = $imageField['imagefile'] ?? '';
+        $altText    = $imageField['alt_text'] ?? '';
+        
 
-        if (!$path) {
-            // if the path is empty ( = the media field is empty), don't diaply errors
+        if (!$sourcePath) {
             return [
                 'ok'    => true,
                 'error' => null,
@@ -173,141 +192,143 @@ final class ResponsiveImageHelper
 
         /* ---------------- Normalize path ---------------- */
 
-        $path = rawurldecode(explode('#', $path, 2)[0]);
-        $path = str_replace('\\', '/', $path);
+        $sourcePath = rawurldecode(explode('#', $sourcePath, 2)[0]);
+        $sourcePath = str_replace('\\', '/', $sourcePath);
 
-        // If already absolute (Linux or Windows), keep it
-        $isAbsolute =
-            str_starts_with($path, '/') ||
-            preg_match('#^[A-Za-z]:/#', $path);
+        $isAbsolutePath =
+            str_starts_with($sourcePath, '/') ||
+            preg_match('#^[A-Za-z]:/#', $sourcePath);
 
-        // If relative, prepend JPATH_ROOT
-        if (!$isAbsolute) {
-            $path = rtrim(JPATH_ROOT, '/') . '/' . ltrim($path, '/');
+        if (!$isAbsolutePath) {
+            $sourcePath = rtrim(JPATH_ROOT, '/') . '/' . ltrim($sourcePath, '/');
         }
 
-        // Fix duplicated images/images
-        $path = preg_replace('#/images/images/#', '/images/', $path, 1);
+        $sourcePath = preg_replace('#/images/images/#', '/images/', $sourcePath, 1);
 
-        // Now resolve
-        $real = realpath($path);
-        if ($real === false) {
-            return self::fail('Image file not found on disk: ' . $path);
+        $absolutePath = realpath($sourcePath);
+        if ($absolutePath === false) {
+            return self::fail('Image file not found on disk: ' . $sourcePath);
         }
 
-        $path = $real;
-
-
-        $info = pathinfo($path);
-        $ext  = strtolower($info['extension'] ?? '');
+        $pathInfo = pathinfo($absolutePath);
+        $extension = strtolower($pathInfo['extension'] ?? '');
 
         /* ---------------- SVG handling ---------------- */
-        if ($ext === 'svg') {
-            $src = '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', str_replace(JPATH_ROOT, '', $path)), '/');
-            [$w, $h] = self::getSvgDimensions($path);
-        
+
+        if ($extension === 'svg') {
+            [$width, $height] = self::getSvgDimensions($absolutePath);
+
+            $publicSrc = '/' . ltrim(
+                str_replace(DIRECTORY_SEPARATOR, '/', str_replace(JPATH_ROOT, '', $absolutePath)),
+                '/'
+            );
+
             return [
                 'ok'    => true,
                 'error' => null,
                 'data'  => [
                     'isSvg'   => true,
-                    'src'     => $src,
-                    'alt'     => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-                    'width'   => $w ?: null,
-                    'height'  => $h ?: null,
-                    'loading' => $opt['lazy'] ? 'loading="lazy"' : '',
+                    'src'     => $publicSrc,
+                    'alt'     => htmlspecialchars(trim($altText) ?: $pathInfo['filename'], ENT_QUOTES),
+                    'width'   => $width ?: null,
+                    'height'  => $height ?: null,
+                    'loading' => $options['lazy'] ? 'loading="lazy"' : '',
                 ],
             ];
         }
 
-        /* ---------------- Raster image handling ---------------- */
+        /* ---------------- Raster image ---------------- */
 
-        [$ow, $oh] = getimagesize($path) ?: [0, 0];
-        if (!$ow || !$oh) {
+        [$originalWidth, $originalHeight] = getimagesize($absolutePath) ?: [0, 0];
+        if (!$originalWidth || !$originalHeight) {
             return self::fail('Unable to read image dimensions');
         }
 
-        $ratio = $oh / $ow;
-        $crop  = null;
+        $aspectRatio = $originalHeight / $originalWidth;
+        $cropBox     = null;
 
-        if (is_numeric($opt['aspectRatio']) && $opt['aspectRatio'] > 0) {
-            $crop = self::calculateCrop($ow, $oh, (float)$opt['aspectRatio']);
-            [$ow, $oh] = [$crop[0], $crop[1]];
-            $ratio = $oh / $ow;
+        if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
+            $cropBox = self::calculateCropBox(
+                $originalWidth,
+                $originalHeight,
+                (float) $options['aspectRatio']
+            );
+
+            [$originalWidth, $originalHeight] = [$cropBox[0], $cropBox[1]];
+            $aspectRatio = $originalHeight / $originalWidth;
         }
 
         /* ---------------- Output directory ---------------- */
 
-        $imagesRoot = realpath(JPATH_ROOT . '/images');
-        $realImage  = realpath($path);
-
-        if (!$imagesRoot || !$realImage || !str_starts_with($realImage, $imagesRoot)) {
+        $imagesRootPath = realpath(JPATH_ROOT . '/images');
+        if (!$imagesRootPath || !str_starts_with($absolutePath, $imagesRootPath)) {
             return self::fail('Image is outside /images directory');
         }
 
-        $relativeDir = trim(
-            str_replace($imagesRoot, '', dirname($realImage)),
+        $relativeDirectory = trim(
+            str_replace($imagesRootPath, '', dirname($absolutePath)),
             DIRECTORY_SEPARATOR
         );
 
-        $outBase = JPATH_ROOT . '/images/' . trim($opt['outputDir'], '/');
-        if ($relativeDir !== '') {
-            $outBase .= '/' . $relativeDir;
+        $thumbnailsBasePath = JPATH_ROOT . '/images/' . $options['outputDir'];
+        if ($relativeDirectory !== '') {
+            $thumbnailsBasePath .= '/' . $relativeDirectory;
         }
 
-        if (!is_dir($outBase) && !mkdir($outBase, 0755, true)) {
-            return self::fail('Failed to create thumbnail directory : ' . $outBase);
+        if (!is_dir($thumbnailsBasePath) && !mkdir($thumbnailsBasePath, 0755, true)) {
+            return self::fail('Failed to create thumbnail directory: ' . $thumbnailsBasePath);
         }
 
-        $hash = substr(md5($path . filemtime($path)), 0, 8);
+        $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
 
-        $srcset = [];
-        $srcsetWebp = [];
-        $jobs = [];
+        $srcsetEntries      = [];
+        $webpSrcsetEntries  = [];
+        $resizeJobs         = [];
 
-        // Remove duplicate widths and sort ascending
-        $widths = array_unique(array_map('intval', $opt['widths']));
-        sort($widths);
+        $targetWidths = array_unique(array_map('intval', $options['widths']));
+        sort($targetWidths);
 
-        foreach ($widths as $w) {
-            // Never overscale
-            if ($w > $ow) {
-                $w = $ow;
+        foreach ($targetWidths as $targetWidth) {
+            if ($targetWidth > $originalWidth) {
+                $targetWidth = $originalWidth;
             }
-        
-            $h = (int) round($w * $ratio);
-        
-            if ($w <= 0 || $h <= 0) {
+
+            $targetHeight = (int) round($targetWidth * $aspectRatio);
+            if ($targetWidth <= 0 || $targetHeight <= 0) {
                 continue;
             }
-        
-            // Avoid duplicate jobs if width already processed
-            if (in_array($w, array_column($jobs, 2), true)) {
+
+            if (in_array($targetWidth, array_column($resizeJobs, 2), true)) {
                 continue;
             }
-        
-            $base = sprintf(
+
+            $baseFilename = sprintf(
                 '%s/%s-%s-q%d-%dx%d',
-                $outBase,
-                $info['filename'],
+                $thumbnailsBasePath,
+                $pathInfo['filename'],
                 $hash,
-                $opt['quality'],
-                $w,
-                $h
+                $options['quality'],
+                $targetWidth,
+                $targetHeight
             );
-        
-            $file = $base . '.' . $ext;
-            $webp = $base . '.webp';
-        
-            $jobs[] = [$file, $webp, $w, $h];
-        
-            $srcset[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $file)) . " {$w}w";
-            if ($opt['webp']) {
-                $srcsetWebp[] = '/' . self::safeUrl(str_replace(JPATH_ROOT . '/', '', $webp)) . " {$w}w";
+
+            $thumbnailPath = $baseFilename . '.' . $extension;
+            $webpPath      = $baseFilename . '.webp';
+
+            $resizeJobs[] = [$thumbnailPath, $webpPath, $targetWidth, $targetHeight];
+
+            $srcsetEntries[] =
+                '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $thumbnailPath))
+                . " {$targetWidth}w";
+
+            if ($options['webp']) {
+                $webpSrcsetEntries[] =
+                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $webpPath))
+                    . " {$targetWidth}w";
             }
         }
 
-        if (empty($jobs)) {
+        if (empty($resizeJobs)) {
             return self::fail('No valid thumbnail sizes generated');
         }
 
@@ -315,83 +336,93 @@ final class ResponsiveImageHelper
             return self::fail('Imagick extension is not available');
         }
 
-        $lock = fopen($outBase . '/.lock', 'c');
-        if (!$lock) {
+        $lockHandle = fopen($thumbnailsBasePath . '/.lock', 'c');
+        if (!$lockHandle) {
             return self::fail('Unable to create lock file');
         }
 
-        if (flock($lock, LOCK_EX)) {
+        if (flock($lockHandle, LOCK_EX)) {
             try {
-                $img = new Imagick($path);
+                $image = new Imagick($absolutePath);
             } catch (Throwable) {
-                fclose($lock);
+                fclose($lockHandle);
                 return self::fail('Imagick failed to load image');
             }
 
-            if ($crop) {
-                $img->cropImage(...$crop);
-                $img->setImagePage(0, 0, 0, 0);
+            if ($cropBox) {
+                $image->cropImage(...$cropBox);
+                $image->setImagePage(0, 0, 0, 0);
             }
 
-            foreach ($jobs as [$file, $webp, $w, $h]) {
-                if (!is_file($file)) {
-                    $tmp = tempnam(dirname($file), 'ri_');
-                    $t = clone $img;
-                    $t->resizeImage($w, $h, Imagick::FILTER_LANCZOS, 1, true);
-                    $t->setImageFormat($ext);
-                    $t->setImageCompressionQuality($opt['quality']);
-                    $t->writeImage($tmp);
+            foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
+                if (!is_file($thumbnailPath)) {
+                    $tmpPath = tempnam(dirname($thumbnailPath), 'ri_');
+                    $resizedImage = clone $image;
 
-                    if (!rename($tmp, $file)) {
-                        return self::fail('Failed to write thumbnail: ' . basename($file));
-                    }
+                    $resizedImage->resizeImage(
+                        $targetWidth,
+                        $targetHeight,
+                        Imagick::FILTER_LANCZOS,
+                        1,
+                        true
+                    );
 
-                    chmod($file, 0644);
+                    $resizedImage->setImageFormat($extension);
+                    $resizedImage->setImageCompressionQuality($options['quality']);
+                    $resizedImage->writeImage($tmpPath);
 
-                    $t->clear();
+                    rename($tmpPath, $thumbnailPath);
+                    chmod($thumbnailPath, 0644);
+
+                    $resizedImage->clear();
                 }
 
-                if ($opt['webp'] && !is_file($webp)) {
-                    $tmp = tempnam(dirname($webp), 'ri_');
-                    $t = clone $img;
-                    $t->resizeImage($w, $h, Imagick::FILTER_LANCZOS, 1, true);
-                    $t->setImageFormat('webp');
-                    $t->setImageCompressionQuality($opt['quality']);
-                    $t->writeImage($tmp);
+                if ($options['webp'] && !is_file($webpPath)) {
+                    $tmpPath = tempnam(dirname($webpPath), 'ri_');
+                    $resizedImage = clone $image;
 
-                    if (!rename($tmp, $webp)) {
-                        return self::fail('Failed to write WebP thumbnail: ' . basename($webp));
-                    }
+                    $resizedImage->resizeImage(
+                        $targetWidth,
+                        $targetHeight,
+                        Imagick::FILTER_LANCZOS,
+                        1,
+                        true
+                    );
 
-                    chmod($webp, 0644);
+                    $resizedImage->setImageFormat('webp');
+                    $resizedImage->setImageCompressionQuality($options['quality']);
+                    $resizedImage->writeImage($tmpPath);
 
-                    $t->clear();
+                    rename($tmpPath, $webpPath);
+                    chmod($webpPath, 0644);
+
+                    $resizedImage->clear();
                 }
             }
 
-            $img->clear();
-            flock($lock, LOCK_UN);
+            $image->clear();
+            flock($lockHandle, LOCK_UN);
         }
 
-        fclose($lock);
+        fclose($lockHandle);
 
-        $fallback = explode(' ', end($srcset))[0];
+        $fallbackSrc = explode(' ', end($srcsetEntries))[0];
 
         return [
             'ok'    => true,
             'error' => null,
             'data'  => [
                 'isSvg'      => false,
-                'srcset'     => implode(', ', $srcset),
-                'webpSrcset' => $opt['webp'] ? implode(', ', $srcsetWebp) : null,
-                'fallback'   => $fallback,
-                'sizes'      => htmlspecialchars($opt['sizes'], ENT_QUOTES),
-                'alt'        => htmlspecialchars(trim($alt) ?: $info['filename'], ENT_QUOTES),
-                'width'      => $ow,
-                'height'     => $oh,
-                'loading'    => $opt['lazy'] ? 'loading="lazy"' : '',
+                'srcset'     => implode(', ', $srcsetEntries),
+                'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
+                'fallback'   => $fallbackSrc,
+                'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
+                'alt'        => htmlspecialchars(trim($altText) ?: $pathInfo['filename'], ENT_QUOTES),
+                'width'      => $originalWidth,
+                'height'     => $originalHeight,
+                'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
                 'decoding'   => 'decoding="async"',
-                'extension'  => $ext,
+                'extension'  => $extension,
             ],
         ];
     }
