@@ -179,8 +179,14 @@ final class ResponsiveImageHelper
         }
 
         $sourcePath = $imageField['imagefile'] ?? '';
-        $altText    = $imageField['alt_text'] ?? '';
-        
+
+        // Alt text priority resolution (filename fallback later)
+        $altText = '';
+        if (!empty($imageField['alt_text'])) {
+            $altText = trim((string) $imageField['alt_text']);
+        } elseif (!empty($options['alt'])) {
+            $altText = trim((string) $options['alt']);
+        }
 
         if (!$sourcePath) {
             return [
@@ -210,8 +216,13 @@ final class ResponsiveImageHelper
             return self::fail('Image file not found on disk: ' . $sourcePath);
         }
 
-        $pathInfo = pathinfo($absolutePath);
+        $pathInfo  = pathinfo($absolutePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
+
+        // Final alt fallback: filename
+        if ($altText === '') {
+            $altText = $pathInfo['filename'] ?? '';
+        }
 
         /* ---------------- SVG handling ---------------- */
 
@@ -229,7 +240,7 @@ final class ResponsiveImageHelper
                 'data'  => [
                     'isSvg'   => true,
                     'src'     => $publicSrc,
-                    'alt'     => htmlspecialchars(trim($altText) ?: $pathInfo['filename'], ENT_QUOTES),
+                    'alt'     => htmlspecialchars($altText, ENT_QUOTES),
                     'width'   => $width ?: null,
                     'height'  => $height ?: null,
                     'loading' => $options['lazy'] ? 'loading="lazy"' : '',
@@ -417,7 +428,7 @@ final class ResponsiveImageHelper
                 'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
                 'fallback'   => $fallbackSrc,
                 'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
-                'alt'        => htmlspecialchars(trim($altText) ?: $pathInfo['filename'], ENT_QUOTES),
+                'alt'        => htmlspecialchars($altText, ENT_QUOTES),
                 'width'      => $originalWidth,
                 'height'     => $originalHeight,
                 'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
