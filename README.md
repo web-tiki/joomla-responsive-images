@@ -156,6 +156,7 @@ echo LayoutHelper::render(
 
 - PHP ≥ 8.1
 - Imagick enabled
+- Space on your server. This plugin can generate many thumbnails from your images and therefore needs space to write thme on your server.
 
 ---
 
