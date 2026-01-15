@@ -16,13 +16,15 @@ Compatible with **Joomla 5 & Joomla 6**.
 ## ✨ Features
 
 - Responsive image generation (`srcset`, `sizes`) with `<picture>` output
+- **Width-based thumbnails**
+- **Never upscales images**
 - Preserves original image **subfolder structure**
 - Automatic thumbnail caching
 - WebP support (optional)
 - Lazy-loading support (optional)
 - Layout-based rendering (fully overrideable)
-- Secure filesystem handling (no arbitrary writes)
-- svg source images support
+- Secure filesystem handling
+- SVG source images support
 
 ---
 
@@ -30,19 +32,12 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 1. **Download the latest release:**
    https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
-   
-
-   [All releases](https://github.com/web-tiki/joomla-responsive-images/releases)
 
 2. Install via **Extensions → Install**
-
 3. Enable the plugin:
    ```
    System → Responsive Images
    ```
-
-[Find all releases here](https://github.com/web-tiki/joomla-responsive-images/releases)
-
 
 ---
 
@@ -50,45 +45,10 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ### Thumbnail directory (IMPORTANT)
 
-**Setting:** `Thumbnail directory (relative to /images)`
+Path is **relative to `/images`**.
 
-This setting controls where generated thumbnails are stored.
-
-### ✅ Correct value
-```
-thumbnails/responsive
-```
-
-### ❌ Incorrect value
-```
-images/thumbnails/responsive
-```
-
-> ⚠️ The path is **always relative to Joomla’s `/images` folder**.  
-> Do **NOT** include `images/` in this setting.
-
----
-
-### 📂 Folder structure preservation
-
-The plugin **automatically preserves the original image subfolder structure**.
-
-#### Example
-
-Original image:
-```
-/images/new york/parc/parc 1.jpg
-```
-
-Generated thumbnails (default directory : responsive-images ):
-```
-/images/responsive-images/new york/parc/parc-<hash>-q75-640x427.jpg
-/images/responsive-images/new york/parc/parc-<hash>-q75-1280x854.webp
-```
-
-✔ Same subfolders  
-✔ Safe paths  
-✔ CDN-friendly URLs  
+✅ `thumbnails/responsive`  
+❌ `images/thumbnails/responsive`
 
 ---
 
@@ -101,7 +61,7 @@ Generated thumbnails (default directory : responsive-images ):
 ```php
 use Joomla\CMS\Layout\LayoutHelper;
 
-echo LayoutHelper::render('responsiveimages.image',['field' => $field],JPATH_PLUGINS . '/system/responsiveimages/layouts');
+echo LayoutHelper::render('responsiveimages.image',['imageField' => $imageField],JPATH_PLUGINS . '/system/responsiveimages/layouts');
 ```
 This will use all the default options to generate the thumbnails :
 *(Most of these default values are customizable in the plugin options.)*
@@ -131,7 +91,7 @@ use Joomla\CMS\Layout\LayoutHelper;
 echo LayoutHelper::render(
     'responsiveimages.image',
     [
-        'field' => $field,
+        'imageField' => $imageField,
         'options' => [
             'lazy' => true,
             'webp' => true,
@@ -145,41 +105,32 @@ echo LayoutHelper::render(
     JPATH_PLUGINS . '/system/responsiveimages/layouts'
 );
 ```
+
+### Alt text priority
+
+1. Image media field alt text
+2. `alt` option from override
+3. Image filename
+
 ---
-## 🧠 Option reference
+
+## 🧠 Options
 
 | Option | Type | Description |
 |------|------|-------------|
-| `lazy` | bool | Enables `loading="lazy"` |
-| `webp` | bool | Generates WebP sources |
-| `alt` | string | alt text |
-| `sizes` | string | HTML sizes attribute |
-| `widths` | array | Thumbnail widths |
-| `quality` | int | Image quality (1–100) |
-| `aspectRatio` | float | Crop ratio (height / width) |
+| lazy | bool | loading="lazy" |
+| webp | bool | Generate WebP |
+| alt | string | Fallback alt |
+| sizes | string | sizes attribute |
+| widths | array | Thumbnail widths |
+| quality | int | 1–100 |
+| aspectRatio | float | height / width |
 
 ---
 
-## 🎨 Layout Overrides
+## 🔐 Security
 
-Default layout:
-```
-plugins/system/responsiveimages/layouts/responsiveimages/image.php
-```
-
-Template override:
-```
-templates/YOUR_TEMPLATE/html/layouts/responsiveimages/image.php
-```
-
----
-
-## 🔐 Security Design
-
-- Thumbnails always stay inside `/images`
-- Original images must be inside `/images`
-- Sanitized paths
-- No directory traversal
+- Thumbnails stay inside `/images`
 - Safe concurrent generation
 
 ---
@@ -201,42 +152,12 @@ templates/YOUR_TEMPLATE/html/layouts/responsiveimages/image.php
 
 ---
 
-## 🧪 Compatibility
-
-| Joomla Version | Status |
-|---------------|--------|
-| Joomla 6.x | ✅ |
-| Joomla 5.x | ✅ |
-
----
-
-## ✅ Requirements
-
-Server :
+## 🧪 Requirements
 
 - PHP ≥ 8.1
-- Imagick PHP extension enabled
-- ImageMagick compiled with support for:
-  - JPEG
-  - PNG
-  - WebP (recommended)
+- Imagick enabled
 
-**ℹ️ Without Imagick, the plugin cannot generate thumbnails and will not function.**
-
-You can verify Imagick with:
-```
-php -m | grep imagick
-```
-
-## ResponsiveImageHelper::getProcessedData()
-
-Returns:
-- ok = true, data = null → nothing rendered
-- ok = true, data = array → image data
-- ok = false → error (HTML comment only)
-
-The helper NEVER throws exceptions.
-
+---
 
 ## 📄 License
 

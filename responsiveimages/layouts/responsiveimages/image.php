@@ -13,14 +13,14 @@ defined('_JEXEC') or die;
 
 use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
 
-$field   = $displayData['field'] ?? null;
+$imageField   = $displayData['imageField'] ?? null;
 $options = $displayData['options'] ?? [];
 
 if (!class_exists(ResponsiveImageHelper::class)) {
     return;
 }
 
-$result = ResponsiveImageHelper::getProcessedData($field, $options);
+$result = ResponsiveImageHelper::getProcessedData($imageField, $options);
 
 // Silent exit if plugin disabled
 if ($result['ok'] && empty($result['data'])) {
