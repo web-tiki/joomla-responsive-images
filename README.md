@@ -116,6 +116,13 @@ echo LayoutHelper::render(
 2. `alt` option from override
 3. Image filename
 
+
+### Webp option
+
+When enabled, the plugin doesn't generate any ratser thumbnails (.jpg or .png), only .webp thumbnails are genrated.
+Th original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-PATH-HERE" />`.
+
+
 ---
 
 ## 🧠 Options
