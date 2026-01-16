@@ -68,3 +68,12 @@ if (!empty($data['isSvg'])) : ?>
          <?= $data['loading']; ?>
          <?= $data['decoding']; ?>>
 </picture>
+
+<?php // display debug information : ?>
+<?php if (!empty($displayData['debug'])) : ?>
+    <pre class="responsiveimages-debug" style="background:#111;color:#0f0;padding:10px;font-size:12px;">
+        <?php foreach ($displayData['debug'] as $line) : ?>
+            <?= htmlspecialchars($line, ENT_QUOTES) . "\n"; ?>
+        <?php endforeach; ?>
+    </pre>
+<?php endif; ?>

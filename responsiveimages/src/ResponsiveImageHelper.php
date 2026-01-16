@@ -15,7 +15,6 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\PluginHelper;
 use Imagick;
-use RuntimeException;
 use Throwable;
 
 final class ResponsiveImageHelper
@@ -107,14 +106,15 @@ final class ResponsiveImageHelper
      * Error handling
      * ========================================================== */
 
-    private static function fail(string $message): array
-    {
-        return [
-            'ok'    => false,
-            'error' => $message,
-            'data'  => null,
-        ];
-    }
+     private static function fail(string $message, bool $debugMode = false, array $debugLog = [], array $finalOptions = []): array
+     {
+         return [
+             'ok'         => false,
+             'error'      => $message,
+             'data'       => null,
+             'debug_data' => $debugMode ? ['log' => $debugLog, 'options' => $finalOptions] : null,
+         ];
+     }
 
     /* ==========================================================
      * Public API
@@ -124,9 +124,9 @@ final class ResponsiveImageHelper
         mixed $imageField,
         array $options = []
     ): array {
-        if (!$imageField) {
-            return self::fail('Empty image field');
-        }
+        
+        $debugLog = [];
+        $debugLog[] = "Initializing plugin.";
 
         /* ---------------- Plugin defaults ---------------- */
 
@@ -136,7 +136,7 @@ final class ResponsiveImageHelper
         if (!is_object($plugin)) {
             return [
                 'ok'    => true,
-                'error' => null,
+                'error' => 'Plugin object not found',
                 'data'  => null,
             ];
         }
@@ -158,12 +158,21 @@ final class ResponsiveImageHelper
             'outputDir'   => trim($pluginParams['thumb_dir'] ?? 'responsive-images', '/'),
             'alt'         => '',
             'aspectRatio' => null,
+            'debug'       => (bool) ($pluginParams['debug'] ?? false), 
         ];
 
+        // Merge options
         $options = array_merge($defaultOptions, $options);
+        $isDebug = (bool) $options['debug'];
+
+        if ($isDebug) $debugLog[] = "Configuration merged successfully.";
+
+        if (!$imageField) {
+            return self::fail('Input image field is empty.', $isDebug, $debugLog, $options);
+        }
 
         if (empty($options['widths']) || !is_array($options['widths'])) {
-            return self::fail('Invalid widths configuration');
+            return self::fail('Invalid widths configuration provided.', $isDebug, $debugLog, $options);
         }
 
         /* ---------------- Normalize field ---------------- */
@@ -175,12 +184,11 @@ final class ResponsiveImageHelper
         }
 
         if (!is_array($imageField)) {
-            return self::fail('Invalid image field');
+            return self::fail('Invalid image field format (expected string, object, or array).', $isDebug, $debugLog, $options);
         }
 
         $sourcePath = $imageField['imagefile'] ?? '';
 
-        // Alt text priority resolution (filename fallback later)
         $altText = '';
         if (!empty($imageField['alt_text'])) {
             $altText = trim((string) $imageField['alt_text']);
@@ -189,14 +197,10 @@ final class ResponsiveImageHelper
         }
 
         if (!$sourcePath) {
-            return [
-                'ok'    => true,
-                'error' => null,
-                'data'  => null,
-            ];
+             return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
         }
 
-        /* ---------------- Normalize path ---------------- */
+        /* ---------------- Path Resolution ---------------- */
 
         $sourcePath = rawurldecode(explode('#', $sourcePath, 2)[0]);
         $sourcePath = str_replace('\\', '/', $sourcePath);
@@ -210,16 +214,17 @@ final class ResponsiveImageHelper
         }
 
         $sourcePath = preg_replace('#/images/images/#', '/images/', $sourcePath, 1);
-
         $absolutePath = realpath($sourcePath);
+        
+        if ($isDebug) $debugLog[] = "Resolving original path: " . $sourcePath;
+
         if ($absolutePath === false) {
-            return self::fail('Image file not found on disk: ' . $sourcePath);
+            return self::fail('Original image file not accessible on disk: ' . $sourcePath, $isDebug, $debugLog, $options);
         }
 
         $pathInfo  = pathinfo($absolutePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
 
-        // Final alt fallback: filename
         if ($altText === '') {
             $altText = $pathInfo['filename'] ?? '';
         }
@@ -227,6 +232,7 @@ final class ResponsiveImageHelper
         /* ---------------- SVG handling ---------------- */
 
         if ($extension === 'svg') {
+            if ($isDebug) $debugLog[] = "SVG file detected. Skipping raster processing.";
             [$width, $height] = self::getSvgDimensions($absolutePath);
 
             $publicSrc = '/' . ltrim(
@@ -245,26 +251,25 @@ final class ResponsiveImageHelper
                     'height'  => $height ?: null,
                     'loading' => $options['lazy'] ? 'loading="lazy"' : '',
                 ],
+                'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
             ];
         }
 
         /* ---------------- Raster image ---------------- */
 
+        if ($isDebug) $debugLog[] = "Reading original dimensions via getimagesize().";
         [$originalWidth, $originalHeight] = getimagesize($absolutePath) ?: [0, 0];
+        
         if (!$originalWidth || !$originalHeight) {
-            return self::fail('Unable to read image dimensions');
+            return self::fail('Failed to read dimensions of original image. File might be corrupt.', $isDebug, $debugLog, $options);
         }
 
         $aspectRatio = $originalHeight / $originalWidth;
         $cropBox     = null;
 
         if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
-            $cropBox = self::calculateCropBox(
-                $originalWidth,
-                $originalHeight,
-                (float) $options['aspectRatio']
-            );
-
+            if ($isDebug) $debugLog[] = "Calculating crop for Aspect Ratio: " . $options['aspectRatio'];
+            $cropBox = self::calculateCropBox($originalWidth, $originalHeight, (float) $options['aspectRatio']);
             [$originalWidth, $originalHeight] = [$cropBox[0], $cropBox[1]];
             $aspectRatio = $originalHeight / $originalWidth;
         }
@@ -272,43 +277,38 @@ final class ResponsiveImageHelper
         /* ---------------- Output directory ---------------- */
 
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
-        if (!$imagesRootPath || !str_starts_with($absolutePath, $imagesRootPath)) {
-            return self::fail('Image is outside /images directory');
-        }
-
-        $relativeDirectory = trim(
-            str_replace($imagesRootPath, '', dirname($absolutePath)),
-            DIRECTORY_SEPARATOR
-        );
+        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
 
         $thumbnailsBasePath = JPATH_ROOT . '/images/' . $options['outputDir'];
         if ($relativeDirectory !== '') {
             $thumbnailsBasePath .= '/' . $relativeDirectory;
         }
 
-        if (!is_dir($thumbnailsBasePath) && !mkdir($thumbnailsBasePath, 0755, true)) {
-            return self::fail('Failed to create thumbnail directory: ' . $thumbnailsBasePath);
+        if (!is_dir($thumbnailsBasePath)) {
+            if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
+            if (!mkdir($thumbnailsBasePath, 0755, true)) {
+                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
+            }
+        } else {
+            if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
         }
 
         $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
-
-        $srcsetEntries      = [];
-        $webpSrcsetEntries  = [];
-        $resizeJobs         = [];
+        $srcsetEntries = [];
+        $webpSrcsetEntries = [];
+        $resizeJobs = [];
 
         $targetWidths = array_unique(array_map('intval', $options['widths']));
         sort($targetWidths);
 
         foreach ($targetWidths as $targetWidth) {
-            if ($targetWidth > $originalWidth) {
-                $targetWidth = $originalWidth;
-            }
-
+            if ($targetWidth > $originalWidth) $targetWidth = $originalWidth;
             $targetHeight = (int) round($targetWidth * $aspectRatio);
             if ($targetWidth <= 0 || $targetHeight <= 0) {
                 continue;
             }
 
+            // Deduplication logic
             if (in_array($targetWidth, array_column($resizeJobs, 2), true)) {
                 continue;
             }
@@ -340,82 +340,74 @@ final class ResponsiveImageHelper
         }
 
         if (empty($resizeJobs)) {
-            return self::fail('No valid thumbnail sizes generated');
+            return self::fail('No valid thumbnail sizes generated', $isDebug, $debugLog, $options);
         }
+
+        
+        /* ---------------- Imagick Processing ---------------- */
 
         if (!class_exists(Imagick::class)) {
-            return self::fail('Imagick extension is not available');
+            return self::fail('Imagick extension is not loaded on this server.', $isDebug, $debugLog, $options);
         }
 
-        $lockHandle = fopen($thumbnailsBasePath . '/.lock', 'c');
+        $lockFile = $thumbnailsBasePath . '/.lock';
+        $lockHandle = fopen($lockFile, 'c');
         if (!$lockHandle) {
-            return self::fail('Unable to create lock file');
+            return self::fail('Failed to create lock file for thumbnail generation.', $isDebug, $debugLog, $options);
         }
 
         if (flock($lockHandle, LOCK_EX)) {
             try {
                 $image = new Imagick($absolutePath);
-            } catch (Throwable) {
+                
+                if ($cropBox) {
+                    $image->cropImage(...$cropBox);
+                    $image->setImagePage(0, 0, 0, 0);
+                }
+
+                foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
+                    if (!is_file($thumbnailPath)) {
+                        $tmpPath = tempnam(dirname($thumbnailPath), 'ri_');
+                        $resizedImage = clone $image;
+
+                        $resizedImage->resizeImage($targetWidth, $targetHeight, Imagick::FILTER_LANCZOS, 1, true);
+                        $resizedImage->setImageFormat($extension);
+                        $resizedImage->setImageCompressionQuality($options['quality']);
+                        $resizedImage->writeImage($tmpPath);
+
+                        rename($tmpPath, $thumbnailPath);
+                        chmod($thumbnailPath, 0644);
+                        if ($isDebug) $debugLog[] = "Created thumbnail: {$targetWidth}w {$extension}";
+                        $resizedImage->clear();
+                    }
+
+                    if ($options['webp'] && !is_file($webpPath)) {
+                        $tmpPath = tempnam(dirname($webpPath), 'ri_');
+                        $resizedImage = clone $image;
+
+                        $resizedImage->resizeImage($targetWidth, $targetHeight, Imagick::FILTER_LANCZOS, 1, true);
+                        $resizedImage->setImageFormat('webp');
+                        $resizedImage->setImageCompressionQuality($options['quality']);
+                        $resizedImage->writeImage($tmpPath);
+
+                        rename($tmpPath, $webpPath);
+                        chmod($webpPath, 0644);
+                        if ($isDebug) $debugLog[] = "Created thumbnail: {$targetWidth}w webp";
+                        $resizedImage->clear();
+                    }
+                }
+                $image->clear();
+            } catch (Throwable $e) {
+                flock($lockHandle, LOCK_UN);
                 fclose($lockHandle);
-                return self::fail('Imagick failed to load image');
+                return self::fail('Processing Error: ' . $e->getMessage(), $isDebug, $debugLog, $options);
             }
-
-            if ($cropBox) {
-                $image->cropImage(...$cropBox);
-                $image->setImagePage(0, 0, 0, 0);
-            }
-
-            foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
-                if (!is_file($thumbnailPath)) {
-                    $tmpPath = tempnam(dirname($thumbnailPath), 'ri_');
-                    $resizedImage = clone $image;
-
-                    $resizedImage->resizeImage(
-                        $targetWidth,
-                        $targetHeight,
-                        Imagick::FILTER_LANCZOS,
-                        1,
-                        true
-                    );
-
-                    $resizedImage->setImageFormat($extension);
-                    $resizedImage->setImageCompressionQuality($options['quality']);
-                    $resizedImage->writeImage($tmpPath);
-
-                    rename($tmpPath, $thumbnailPath);
-                    chmod($thumbnailPath, 0644);
-
-                    $resizedImage->clear();
-                }
-
-                if ($options['webp'] && !is_file($webpPath)) {
-                    $tmpPath = tempnam(dirname($webpPath), 'ri_');
-                    $resizedImage = clone $image;
-
-                    $resizedImage->resizeImage(
-                        $targetWidth,
-                        $targetHeight,
-                        Imagick::FILTER_LANCZOS,
-                        1,
-                        true
-                    );
-
-                    $resizedImage->setImageFormat('webp');
-                    $resizedImage->setImageCompressionQuality($options['quality']);
-                    $resizedImage->writeImage($tmpPath);
-
-                    rename($tmpPath, $webpPath);
-                    chmod($webpPath, 0644);
-
-                    $resizedImage->clear();
-                }
-            }
-
-            $image->clear();
             flock($lockHandle, LOCK_UN);
         }
 
         fclose($lockHandle);
+
+        if ($isDebug) $debugLog[] = "Process completed successfully.";
 
         $fallbackSrc = explode(' ', end($srcsetEntries))[0];
 
@@ -435,6 +427,7 @@ final class ResponsiveImageHelper
                 'decoding'   => 'decoding="async"',
                 'extension'  => $extension,
             ],
+            'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,        
         ];
     }
 }
