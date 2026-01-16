@@ -54,6 +54,7 @@ An original image in the folder `/images/parcs/new york/` will generate thumbnai
 
 **This breaks layout by displaying debug information on the frontend !**
 This is disabled by default and should be on production sites. It is intended to debug the plugin and show where is fails if it does.
+**Ensure cache is disabled to get reliable information here**
 
 
 ## 🧩 Usage
