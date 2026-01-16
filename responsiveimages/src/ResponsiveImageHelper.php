@@ -14,7 +14,6 @@ namespace WebTiki\Plugin\System\ResponsiveImages;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\PluginHelper;
-use Joomla\CMS\Filesystem\Folder;
 use Imagick;
 use RuntimeException;
 use Throwable;
