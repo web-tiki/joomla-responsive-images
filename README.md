@@ -45,15 +45,20 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ### Original images and thumbnail directory
 
-The original images must be in the `/images/` folder.
-The thumbnails are created in the `/media/ri-responsiveimages/` and keep the folder structure of the original image (relative to the `/images/` folder). Example : 
+The original images must be in the default `/images/` folder.
+The thumbnails are created in the `/media/ri-responsiveimages/` folder and keep the folder structure of the original image (relative to the `/images/` folder). 
+
+Example : 
 An original image in the folder `/images/parcs/new york/` will generate thumbnails in the folder `/media/ri-responsiveimages/parcs/new york/`.
+
 ---
 
 ### Debug mode
 
 **This breaks layout by displaying debug information on the frontend !**
+
 This is disabled by default and should be on production sites. It is intended to debug the plugin and show where is fails if it does.
+
 **Ensure cache is disabled to get reliable information here**
 
 
@@ -119,8 +124,8 @@ echo LayoutHelper::render(
 
 ### Webp option
 
-When enabled, the plugin doesn't generate any ratser thumbnails (.jpg or .png), only .webp thumbnails are genrated.
-Th original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-PATH-HERE" />`.
+When enabled, the plugin doesn't generate any raster thumbnails (.jpg or .png), only .webp thumbnails are genrated.
+The original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-RELATIVE-PATH-HERE" />`.
 
 
 ---
@@ -142,7 +147,7 @@ Th original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-PATH-HE
 
 ## 🔐 Security
 
-- Thumbnails stay inside `/images`
+- Thumbnails stay inside `/media/ri-responsiveimages/`
 - Safe concurrent generation
 
 ---
@@ -159,7 +164,7 @@ Th original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-PATH-HE
 
 - JPEG
 - PNG
-- SVG (SVG images are not resized and are rendered as <img> elements)
+- SVG (SVG images are not resized and are rendered as `<img>` elements)
 - WebP (optional)
 
 ---
@@ -168,7 +173,7 @@ Th original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-PATH-HE
 
 - PHP ≥ 8.1
 - Imagick enabled
-- Space on your server. This plugin can generate many thumbnails from your images and therefore needs space to write thme on your server.
+- Space on your server. This plugin can generate many thumbnails from your images and therefore needs space to write them on your server.
 
 ---
 
