@@ -52,6 +52,12 @@ Path is **relative to `/images`**.
 
 ---
 
+### Debug mode
+
+**This breaks layout by displaying debug information on the frontend !**
+This is disabled by default and should be on production sites. It is intended to debug the plugin and show where is fails if it does.
+
+
 ## 🧩 Usage
 
 ### Basic usage (template or override)
@@ -125,6 +131,7 @@ echo LayoutHelper::render(
 | widths | array | Thumbnail widths |
 | quality | int | 1–100 |
 | aspectRatio | float | height / width |
+| debug | bool | display debug information on the frontend |
 
 ---
 
