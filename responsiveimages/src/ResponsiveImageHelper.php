@@ -249,6 +249,7 @@ final class ResponsiveImageHelper
                     'width'   => $width ?: null,
                     'height'  => $height ?: null,
                     'loading' => $options['lazy'] ? 'loading="lazy"' : '',
+                    'decoding'   => 'decoding="async"',
                 ],
                 'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
             ];
@@ -322,20 +323,29 @@ final class ResponsiveImageHelper
                 $targetHeight
             );
 
-            $thumbnailPath = $baseFilename . '.' . $extension;
-            $webpPath      = $baseFilename . '.webp';
+            $webpPath = $baseFilename . '.webp';
 
-            $resizeJobs[] = [$thumbnailPath, $webpPath, $targetWidth, $targetHeight];
+            $resizeJobs[] = [
+                $options['webp'] ? null : $baseFilename . '.' . $extension,
+                $options['webp'] ? $webpPath : null,
+                $targetWidth,
+                $targetHeight,
+            ];
 
-            $srcsetEntries[] =
-                '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $thumbnailPath))
-                . " {$targetWidth}w";
+            // JPG / PNG srcset ONLY if webp disabled
+            if (!$options['webp']) {
+                $srcsetEntries[] =
+                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $baseFilename . '.' . $extension))
+                    . " {$targetWidth}w";
+            }
 
+            // WEBP srcset
             if ($options['webp']) {
                 $webpSrcsetEntries[] =
                     '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $webpPath))
                     . " {$targetWidth}w";
             }
+
         }
 
         if (empty($resizeJobs)) {
@@ -365,7 +375,7 @@ final class ResponsiveImageHelper
                 }
 
                 foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
-                    if (!is_file($thumbnailPath)) {
+                    if ($thumbnailPath && !is_file($thumbnailPath)) {
                         $tmpPath = tempnam(dirname($thumbnailPath), 'ri_');
                         $resizedImage = clone $image;
 
@@ -408,14 +418,28 @@ final class ResponsiveImageHelper
 
         if ($isDebug) $debugLog[] = "Process completed successfully.";
 
-        $fallbackSrc = explode(' ', end($srcsetEntries))[0];
+        $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
+        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
+
+        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
+            return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
+        }
+        
+
+        $relativePath = ltrim(
+            str_replace($normalizedRoot, '', $normalizedPath),
+            '/'
+        );
+
+        $fallbackSrc = '/' . self::encodeUrlPath($relativePath);
+
 
         return [
             'ok'    => true,
             'error' => null,
             'data'  => [
                 'isSvg'      => false,
-                'srcset'     => implode(', ', $srcsetEntries),
+                'srcset'     => !$options['webp'] ? implode(', ', $srcsetEntries) : null,
                 'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
                 'fallback'   => $fallbackSrc,
                 'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
@@ -426,7 +450,7 @@ final class ResponsiveImageHelper
                 'decoding'   => 'decoding="async"',
                 'extension'  => $extension,
             ],
-            'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,        
-        ];
+            'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
+        ];        
     }
 }

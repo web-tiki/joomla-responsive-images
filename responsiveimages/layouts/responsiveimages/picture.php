@@ -38,9 +38,12 @@ if (!empty($data['isSvg'])) : ?>
                 type="image/webp">
     <?php endif; ?>
 
-    <source srcset="<?= $data['srcset']; ?>"
-            sizes="<?= $data['sizes']; ?>"
-            type="image/<?= $data['extension']; ?>">
+    <?php if (!empty($data['srcset'])) : ?>
+        <source srcset="<?= $data['srcset']; ?>"
+                sizes="<?= $data['sizes']; ?>"
+                type="image/<?= $data['extension']; ?>">
+    <?php endif; ?>
+
 
     <img src="<?= $data['fallback']; ?>"
          alt="<?= $data['alt']; ?>"
