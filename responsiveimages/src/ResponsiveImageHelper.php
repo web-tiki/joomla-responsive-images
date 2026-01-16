@@ -155,7 +155,6 @@ final class ResponsiveImageHelper
                 explode(',', $pluginParams['widths'] ?? '480,800,1200,1600,2000,2560')
             ),
             'quality'     => max(1, min(100, (int) ($pluginParams['quality'] ?? 75))),
-            'outputDir'   => trim($pluginParams['thumb_dir'] ?? 'responsive-images', '/'),
             'alt'         => '',
             'aspectRatio' => null,
             'debug'       => (bool) ($pluginParams['debug'] ?? false), 
@@ -279,9 +278,9 @@ final class ResponsiveImageHelper
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
         $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
 
-        $thumbnailsBasePath = JPATH_ROOT . '/images/' . $options['outputDir'];
+        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages/';
         if ($relativeDirectory !== '') {
-            $thumbnailsBasePath .= '/' . $relativeDirectory;
+            $thumbnailsBasePath .= $relativeDirectory;
         }
 
         if (!is_dir($thumbnailsBasePath)) {

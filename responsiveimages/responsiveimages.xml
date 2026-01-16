@@ -9,7 +9,7 @@
     <copyright>(C) 2026 Daniel Molinier</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE</license>
     <authorEmail>hello@web-tiki.com</authorEmail>
-    <version>0.1.2</version>
+    <version>0.1.3</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
@@ -20,7 +20,6 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
-                <field name="thumb_dir" type="text" default="responsive-images" label="Thumbnail directory" description="Where should the thumbnails be stored (relative to /images) ?" />
                 <field name="webp" type="radio" default="1" label="WebP" description="Enable WebP generation by default">
                     <option value="1">JYES</option>
                     <option value="0">JNO</option>

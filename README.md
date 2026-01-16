@@ -43,13 +43,11 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ## ⚙️ Configuration
 
-### Thumbnail directory (IMPORTANT)
+### Original images and thumbnail directory
 
-Path is **relative to `/images`**.
-
-✅ `thumbnails/responsive`  
-❌ `images/thumbnails/responsive`
-
+The original images must be in the `/images/` folder.
+The thumbnails are created in the `/media/ri-responsiveimages/` and keep the folder structure of the original image (relative to the `/images/` folder). Example : 
+An original image in the folder `/images/parcs/new york/` will generate thumbnails in the folder `/media/ri-responsiveimages/parcs/new york/`.
 ---
 
 ### Debug mode
@@ -79,7 +77,6 @@ $defaults = [
     'sizes'       => '100vw',
     'widths'      => '480, 800, 1200, 1600, 2000, 2560',
     'quality'     => 75,
-    'outputDir'   => 'responsive-images',
     'alt'         => '',
     'aspectRatio' => null,
 ];
