@@ -12,68 +12,24 @@ declare(strict_types=1);
 defined('_JEXEC') or die;
 
 use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
+use Joomla\CMS\Layout\LayoutHelper;
 
-$imageField   = $displayData['imageField'] ?? null;
-$options = $displayData['options'] ?? [];
+$imageField = $displayData['imageField'] ?? null;
+$options    = $displayData['options'] ?? [];
+$basePath   = JPATH_PLUGINS . '/system/responsiveimages/layouts';
 
-if (!class_exists(ResponsiveImageHelper::class)) {
-    return;
-}
+if (!class_exists(ResponsiveImageHelper::class)) return;
 
 $result = ResponsiveImageHelper::getProcessedData($imageField, $options);
 
-// Silent exit if plugin disabled
-if ($result['ok'] && empty($result['data'])) {
-    return;
+// Render the Debug Layout if it exists (on success OR failure)
+if (!empty($result['debug_data'])) {
+    echo LayoutHelper::render('responsiveimages.debug', $result['debug_data'], $basePath);
 }
 
-if (!$result['ok']) {
-    echo '<!-- ResponsiveImages error: ' .
-         htmlspecialchars($result['error'], ENT_QUOTES) .
-         ' -->';
-    return;
+if ($result['ok'] && !empty($result['data'])) {
+    echo LayoutHelper::render('responsiveimages.picture', $result['data'], $basePath);
+} elseif (!$result['ok']) {
+    // Hidden error comment if not in debug mode
+    echo '';
 }
-
-$data = $result['data'];
-
-// Safety check and if no image is given, display nothing
-if (empty($data)) {
-    return;
-}
-
-if (!empty($data['isSvg'])) : ?>
-<img src="<?= $data['src']; ?>"
-     alt="<?= $data['alt']; ?>"
-     width="<?= (int)$data['width']; ?>"
-     height="<?= (int)$data['height']; ?>"
-     <?= $data['loading']; ?>
-     <?= $data['decoding'] ?? ''; ?>>
-<?php return; endif; ?>
-
-<picture>
-    <?php if (!empty($data['webpSrcset'])) : ?>
-        <source srcset="<?= $data['webpSrcset']; ?>"
-                sizes="<?= $data['sizes']; ?>"
-                type="image/webp">
-    <?php endif; ?>
-
-    <source srcset="<?= $data['srcset']; ?>"
-            sizes="<?= $data['sizes']; ?>"
-            type="image/<?= $data['extension']; ?>">
-
-    <img src="<?= $data['fallback']; ?>"
-         alt="<?= $data['alt']; ?>"
-         width="<?= (int)$data['width']; ?>"
-         height="<?= (int)$data['height']; ?>"
-         <?= $data['loading']; ?>
-         <?= $data['decoding']; ?>>
-</picture>
-
-<?php // display debug information : ?>
-<?php if (!empty($displayData['debug'])) : ?>
-    <pre class="responsiveimages-debug" style="background:#111;color:#0f0;padding:10px;font-size:12px;">
-        <?php foreach ($displayData['debug'] as $line) : ?>
-            <?= htmlspecialchars($line, ENT_QUOTES) . "\n"; ?>
-        <?php endforeach; ?>
-    </pre>
-<?php endif; ?>
