@@ -7,7 +7,7 @@
     <creationDate>January 2026</creationDate>
     <authorUrl>web-tiki.com</authorUrl>
     <copyright>(C) 2026 Daniel Molinier</copyright>
-    <license>GNU General Public License version 2 or later; see LICENSE</license>
+    <license>GNU General Public License version 3 or later</license>
     <authorEmail>hello@web-tiki.com</authorEmail>
     <version>0.1.5</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
@@ -48,7 +48,7 @@
         <language tag="fr-FR">fr-FR/plg_system_responsiveimages.sys.ini</language>
     </languages>
     <updateservers>
-        <server type="extension" priority="1" name="Responsive Images Update Server">
+        <server type="extension" priority="1" name="web-tiki Responsive Images Update Server">
             https://raw.githubusercontent.com/web-tiki/joomla-responsive-images/main/update.xml
         </server>
     </updateservers>
