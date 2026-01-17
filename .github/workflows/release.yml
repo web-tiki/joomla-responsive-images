@@ -14,21 +14,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main # Ensures we are working on the main branch to push changes back
+          ref: main # Target main branch to commit version bumps back
 
       - name: Update Version Strings
+        id: prep
         run: |
-          VERSION=${{ github.ref_name }}
-          VERSION_CLEAN=${VERSION#v}
+          # Define versions
+          TAG_NAME=${{ github.ref_name }}
+          VERSION_CLEAN=${TAG_NAME#v}
           
-          # 1. Update the Update Server XML (update.xml)
+          echo "VERSION_CLEAN=$VERSION_CLEAN" >> $GITHUB_OUTPUT
+          
+          # 1. Update update.xml (version and download URL)
           sed -i "s|<version>.*</version>|<version>${VERSION_CLEAN}</version>|g" update.xml
           
-          NEW_URL="https://github.com/web-tiki/joomla-responsive-images/releases/download/${VERSION}/plg_system_responsiveimages-${VERSION}.zip"
+          # Match the clean filename in the URL
+          NEW_URL="https://github.com/web-tiki/joomla-responsive-images/releases/download/${TAG_NAME}/plg_system_responsiveimages-${VERSION_CLEAN}.zip"
           sed -i "s|<downloadurl.*>.*</downloadurl>|<downloadurl type=\"full\" format=\"zip\">${NEW_URL}</downloadurl>|g" update.xml
           
-          # 2. Update the Plugin Manifest XML (responsiveimages/responsiveimages.xml)
-          # Specifically targets the <version> tag
+          # 2. Update responsiveimages.xml
           sed -i "s|<version>.*</version>|<version>${VERSION_CLEAN}</version>|g" responsiveimages/responsiveimages.xml
 
       - name: Commit and Push Changes
@@ -36,18 +40,19 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add update.xml responsiveimages/responsiveimages.xml
-          git commit -m "chore: bump version to ${VERSION_CLEAN} [skip ci]" || echo "No changes to commit"
+          git commit -m "chore: bump version to ${{ steps.prep.outputs.VERSION_CLEAN }} [skip ci]" || echo "No changes to commit"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Joomla ZIP
         run: |
-          VERSION=${{ github.ref_name }}
-          FILENAME="plg_system_responsiveimages-${VERSION}.zip"
+          VERSION_CLEAN=${{ steps.prep.outputs.VERSION_CLEAN }}
+          FILENAME="plg_system_responsiveimages-${VERSION_CLEAN}.zip"
           
+          # Zip content of the folder, excluding OS junk
           cd responsiveimages
-          zip -r "../${FILENAME}" .
+          zip -r "../${FILENAME}" . -x "*.DS_Store" -x "__MACOSX" -x "*.git*"
           
           echo "ZIP_FILENAME=${FILENAME}" >> $GITHUB_ENV
 
@@ -56,6 +61,6 @@ jobs:
         with:
           files: ${{ env.ZIP_FILENAME }}
           name: "Release ${{ github.ref_name }}"
-          body: "Joomla Responsive Images Plugin - version ${{ github.ref_name }}"
+          body: "Joomla Responsive Images Plugin - version ${{ steps.prep.outputs.VERSION_CLEAN }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
