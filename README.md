@@ -171,7 +171,7 @@ The original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-RELATI
 
 ## 🧪 Requirements
 
-- PHP ≥ 8.1
+- PHP ≥ 8.2
 - Imagick enabled
 - Space on your server. This plugin can generate many thumbnails from your images and therefore needs space to write them on your server.
 
