@@ -1,6 +1,5 @@
 name: Release Plugin
 
-# This tells GitHub to run the script every time you push a "tag" (like v1.0.8)
 on:
   push:
     tags:
@@ -10,23 +9,31 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Important: allows the script to create the release
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Create Joomla ZIP
         run: |
-          # Go into the plugin folder and zip everything inside it
-          # This ensures the XML manifest is at the root of the ZIP
+          # 1. Store the version name (e.g., v1.1.0)
+          VERSION=${{ github.ref_name }}
+          
+          # 2. Define the filename
+          FILENAME="plg_system_responsiveimages-${VERSION}.zip"
+          
+          # 3. Enter folder and zip
           cd responsiveimages
-          zip -r ../responsiveimages.zip .
+          zip -r "../${FILENAME}" .
+          
+          # 4. Save the filename for the next step
+          echo "ZIP_FILENAME=${FILENAME}" >> $GITHUB_ENV
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: responsiveimages.zip
-          # The name of the release will be your tag (e.g., v1.0.8)
+          # Use the environment variable created in the previous step
+          files: ${{ env.ZIP_FILENAME }}
           name: "Release ${{ github.ref_name }}"
           body: "Joomla Responsive Images Plugin - version ${{ github.ref_name }}"
         env:
