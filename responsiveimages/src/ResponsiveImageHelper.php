@@ -371,6 +371,10 @@ final class ResponsiveImageHelper
             return self::fail('Imagick extension is not loaded on this server.', $isDebug, $debugLog, $options);
         }
 
+        if (!count(Imagick::queryFormats(strtoupper($extension)))) {
+            return self::fail('Server Imagick does not support ' . $extension, $isDebug, $debugLog, $options);
+        }
+
         $lockFile = $thumbnailsBasePath . '/.lock';
         $lockHandle = fopen($lockFile, 'c');
         if (!$lockHandle) {
