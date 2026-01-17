@@ -154,7 +154,7 @@ final class ResponsiveImageHelper
                 'intval',
                 explode(',', $pluginParams['widths'] ?? '480,800,1200,1600,2000,2560')
             ),
-            'quality'     => max(1, min(100, (int) ($pluginParams['quality'] ?? 75))),
+            'quality'     => (int) ($pluginParams['quality'] ?? 75),
             'alt'         => '',
             'aspectRatio' => null,
             'debug'       => (bool) ($pluginParams['debug'] ?? false), 
@@ -163,6 +163,9 @@ final class ResponsiveImageHelper
         // Merge options
         $options = array_merge($defaultOptions, $options);
         $isDebug = (bool) $options['debug'];
+
+        // normalize quality field 1-100
+        $options['quality'] = max(1, min(100, (int) $options['quality']));
 
         if ($isDebug) $debugLog[] = "Configuration merged successfully.";
 
@@ -174,7 +177,7 @@ final class ResponsiveImageHelper
             return self::fail('Invalid widths configuration provided.', $isDebug, $debugLog, $options);
         }
 
-        /* ---------------- Normalize field ---------------- */
+        /* ---------------- Normalize  image field ---------------- */
 
         if (is_string($imageField)) {
             $imageField = json_decode($imageField, true);
