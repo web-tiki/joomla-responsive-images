@@ -12,7 +12,7 @@ declare(strict_types=1);
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\CMSPlugin;
-use Joomla\Filesystem\Folder;
+
 
 class PlgSystemResponsiveImages extends CMSPlugin
 {
