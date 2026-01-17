@@ -31,7 +31,7 @@ Compatible with **Joomla 5 & Joomla 6**.
 ## 📦 Installation
 
 1. **Download the latest release:**
-   https://github.com/web-tiki/joomla-responsive-images/releases/latest/download/responsiveimages.zip
+   https://github.com/web-tiki/joomla-responsive-images/releases
 
 2. Install via **Extensions → Install**
 3. Enable the plugin:

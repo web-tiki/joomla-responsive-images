@@ -13,26 +13,47 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: main # Ensures we are working on the main branch to push changes back
+
+      - name: Update Version Strings
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_CLEAN=${VERSION#v}
+          
+          # 1. Update the Update Server XML (update.xml)
+          sed -i "s|<version>.*</version>|<version>${VERSION_CLEAN}</version>|g" update.xml
+          
+          NEW_URL="https://github.com/web-tiki/joomla-responsive-images/releases/download/${VERSION}/plg_system_responsiveimages-${VERSION}.zip"
+          sed -i "s|<downloadurl.*>.*</downloadurl>|<downloadurl type=\"full\" format=\"zip\">${NEW_URL}</downloadurl>|g" update.xml
+          
+          # 2. Update the Plugin Manifest XML (responsiveimages/responsiveimages.xml)
+          # Specifically targets the <version> tag
+          sed -i "s|<version>.*</version>|<version>${VERSION_CLEAN}</version>|g" responsiveimages/responsiveimages.xml
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.xml responsiveimages/responsiveimages.xml
+          git commit -m "chore: bump version to ${VERSION_CLEAN} [skip ci]" || echo "No changes to commit"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Joomla ZIP
         run: |
-          # 1. Store the version name (e.g., v1.1.0)
           VERSION=${{ github.ref_name }}
-          
-          # 2. Define the filename
           FILENAME="plg_system_responsiveimages-${VERSION}.zip"
           
-          # 3. Enter folder and zip
           cd responsiveimages
           zip -r "../${FILENAME}" .
           
-          # 4. Save the filename for the next step
           echo "ZIP_FILENAME=${FILENAME}" >> $GITHUB_ENV
-          
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # Use the environment variable created in the previous step
           files: ${{ env.ZIP_FILENAME }}
           name: "Release ${{ github.ref_name }}"
           body: "Joomla Responsive Images Plugin - version ${{ github.ref_name }}"
