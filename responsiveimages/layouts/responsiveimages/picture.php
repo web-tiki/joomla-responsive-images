@@ -41,7 +41,7 @@ if (!empty($data['isSvg'])) : ?>
     <?php if (!empty($data['srcset'])) : ?>
         <source srcset="<?= $data['srcset']; ?>"
                 sizes="<?= $data['sizes']; ?>"
-                type="image/<?= $data['extension']; ?>">
+                type="<?= $data['mime_type']; ?>">
     <?php endif; ?>
 
 

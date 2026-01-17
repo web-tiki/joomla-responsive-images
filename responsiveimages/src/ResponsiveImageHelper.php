@@ -227,6 +227,14 @@ final class ResponsiveImageHelper
         $pathInfo  = pathinfo($absolutePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
 
+        // Fix MIME Type mapping
+        $mimeType = 'image/' . $extension;
+        if ($extension === 'jpg' || $extension === 'jpeg') {
+            $mimeType = 'image/jpeg';
+        } elseif ($extension === 'svg') {
+            $mimeType = 'image/svg+xml';
+        }
+
         if ($altText === '') {
             $altText = $pathInfo['filename'] ?? '';
         }
@@ -246,13 +254,14 @@ final class ResponsiveImageHelper
                 'ok'    => true,
                 'error' => null,
                 'data'  => [
-                    'isSvg'   => true,
-                    'src'     => $publicSrc,
-                    'alt'     => htmlspecialchars($altText, ENT_QUOTES),
-                    'width'   => $width ?: null,
-                    'height'  => $height ?: null,
-                    'loading' => $options['lazy'] ? 'loading="lazy"' : '',
-                    'decoding'   => 'decoding="async"',
+                    'isSvg'     => true,
+                    'src'       => $publicSrc,
+                    'alt'       => htmlspecialchars($altText, ENT_QUOTES),
+                    'width'     => $width ?: null,
+                    'height'    => $height ?: null,
+                    'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
+                    'decoding'  => 'decoding="async"',
+                    'mime_type' => $mimeType,
                 ],
                 'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
             ];
@@ -451,7 +460,7 @@ final class ResponsiveImageHelper
                 'height'     => $originalHeight,
                 'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
                 'decoding'   => 'decoding="async"',
-                'extension'  => $extension,
+                'mime_type' => $mimeType,
             ],
             'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
         ];        
