@@ -20,22 +20,67 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
-                <field name="webp" type="radio" default="1" label="WebP" description="Enable WebP generation by default">
-                    <option value="1">JYES</option>
-                    <option value="0">JNO</option>
+                <field 
+                    name="webp" 
+                    type="radio" 
+                    default="1" 
+                    label="WebP" 
+                    filter="integer" 
+                    layout="joomla.form.field.radio.switcher"
+                    description="Enable WebP generation by default">
+                    <option value="1">JON</option>
+                    <option value="0">JOFF</option>
                 </field>
-                <field name="lazy" type="radio" default="1" label="Lazyload" description="Enable lazyload by default">
-                    <option value="1">JYES</option>
-                    <option value="0">JNO</option>
+                <field 
+                    name="lazy" 
+                    type="radio" 
+                    default="1" 
+                    label="Lazyload" 
+                    filter="integer" 
+                    layout="joomla.form.field.radio.switcher"
+                    description="Enable lazyloading images by default">
+                    <option value="1">JON</option>
+                    <option value="0">JOFF</option>
                 </field>
-                <field name="widths" type="text" default="480, 800, 1200, 1600, 2000, 2560" label="Thumb widths" description="Comma-separated list of widths for thumbnails" />
-                <field name="sizes" type="text" default="100vw" label="Sizes attribute" description="Default sizes attribute for responsive images" />
-                <field name="quality" type="number" default="75" label="Image Quality" description="Quality for generated images (1-100) works only for webp and jpeg" />
+                <field 
+                    name="widths" 
+                    type="text" 
+                    default="480, 800, 1200, 1600, 2000, 2560" 
+                    label="Thumb widths" 
+                    description="Comma-separated list of widths for thumbnails"
+                    required="true"
+                />
+                <field 
+                    name="sizes" 
+                    type="text" 
+                    default="100vw" 
+                    label="Sizes attribute" 
+                    description="Default sizes attribute for responsive images"
+                    required="true"
+                />
+                <field name="quality" 
+                    type="number" 
+                    default="75" 
+                    label="Image Quality" 
+                    description="Quality for generated images (1-100) works only for webp and jpeg" 
+                    min="10" 
+                    max="100"
+                    step="5"
+                    hint="this is a hint"
+                    required="true"
+                    />
             </fieldset>
             <fieldset name="advanced">
-                <field name="debug" type="radio" default="0" label="Debug mode" description="Display debug information in frontend output.This displays data on frontend and breaks layout. This should be turned off on live sites. Ensure cache is disabled to get reliable information." >
-                    <option value="0">JNO</option>
-                    <option value="1">JYES</option>
+                <field 
+                    name="debug" 
+                    type="radio" 
+                    default="0" 
+                    label="Debug mode" 
+                    description="Display debug information in frontend output.This displays data on frontend and breaks layout. This should be turned off on live sites. Ensure cache is disabled to get reliable information." 
+                    filter="integer" 
+                    layout="joomla.form.field.radio.switcher">
+                    <option value="1">JON</option>
+                    <option value="0">JOFF</option>
                 </field>
             </fieldset>
 
