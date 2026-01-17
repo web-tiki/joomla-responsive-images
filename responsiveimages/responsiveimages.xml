@@ -9,7 +9,7 @@
     <copyright>(C) 2026 Daniel Molinier</copyright>
     <license>GNU General Public License version 3 or later</license>
     <authorEmail>hello@web-tiki.com</authorEmail>
-    <version>0.1.9</version>
+    <version>0.1.10</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
@@ -33,7 +33,7 @@
                 <field name="quality" type="number" default="75" label="Image Quality" description="Quality for generated images (1-100) works only for webp and jpeg" />
             </fieldset>
             <fieldset name="advanced">
-                <field name="debug" type="radio" default="0" label="Debug mode" description="<strong>Display debug information in frontend output.</strong><br/>This displays data on frontend and breaks layout. This should be turned off on live sites.<br/>Ensure cache is disabled to get reliable information." >
+                <field name="debug" type="radio" default="0" label="Debug mode" description="Display debug information in frontend output.This displays data on frontend and breaks layout. This should be turned off on live sites. Ensure cache is disabled to get reliable information." >
                     <option value="0">JNO</option>
                     <option value="1">JYES</option>
                 </field>
