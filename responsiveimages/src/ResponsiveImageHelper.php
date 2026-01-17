@@ -207,6 +207,10 @@ final class ResponsiveImageHelper
         $sourcePath = rawurldecode(explode('#', $sourcePath, 2)[0]);
         $sourcePath = str_replace('\\', '/', $sourcePath);
 
+        if (strpos($sourcePath, '..') !== false || strpos($sourcePath, "\0") !== false) {
+            return self::fail('Invalid path: contains traversal sequences.', $isDebug, $debugLog, $options);
+        }
+        
         $isAbsolutePath =
             str_starts_with($sourcePath, '/') ||
             preg_match('#^[A-Za-z]:/#', $sourcePath);
