@@ -16,8 +16,5 @@
         <infourl title="WebTiki GitHub">https://github.com/web-tiki/joomla-responsive-images</infourl>
         <targetplatform name="joomla" version="^[56]\..*"/>
         <php_minimum>8.1</php_minimum>
-        <tags>
-            <tag>beta</tag>
-        </tags>
     </update>
 </updates>
