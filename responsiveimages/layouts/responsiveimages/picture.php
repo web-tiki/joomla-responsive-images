@@ -21,34 +21,39 @@ if (empty($data)) {
 }
 
 // Handle SVG
-if (!empty($data['isSvg'])) : ?>
-    <img src="<?= $data['src']; ?>"
-         alt="<?= $data['alt']; ?>"
-         width="<?= (int)$data['width']; ?>"
-         height="<?= (int)$data['height']; ?>"
-         <?= $data['loading']; ?>
-         <?= $data['decoding'] ?? ''; ?>>
-<?php return; endif; ?>
+if (!empty($data['isSvg'])) { ?>
+    <img 
+        src="<?= $data['src']; ?>"
+        alt="<?= $data['alt']; ?>"
+        width="<?= (int)$data['width']; ?>"
+        height="<?= (int)$data['height']; ?>"
+        <?= $data['loading']; ?>
+        <?= $data['decoding'] ?? ''; ?>>
+    <?php return; ?>
+<?php } ?>
 
 <?php // Handle Raster Images ?>
 <picture>
-    <?php if (!empty($data['webpSrcset'])) : ?>
-        <source srcset="<?= $data['webpSrcset']; ?>"
-                sizes="<?= $data['sizes']; ?>"
-                type="image/webp">
-    <?php endif; ?>
+    <?php if (!empty($data['webpSrcset'])) { ?>
+        <source
+            srcset="<?= $data['webpSrcset']; ?>"
+            sizes="<?= $data['sizes']; ?>"
+            type="image/webp">
+    <?php } ?>
 
-    <?php if (!empty($data['srcset'])) : ?>
-        <source srcset="<?= $data['srcset']; ?>"
-                sizes="<?= $data['sizes']; ?>"
-                type="<?= $data['mime_type']; ?>">
-    <?php endif; ?>
+    <?php if (!empty($data['srcset'])) { ?>
+        <source 
+            srcset="<?= $data['srcset']; ?>"
+            sizes="<?= $data['sizes']; ?>"
+            type="<?= $data['mime_type']; ?>">
+    <?php } ?>
 
 
-    <img src="<?= $data['fallback']; ?>"
-         alt="<?= $data['alt']; ?>"
-         width="<?= (int)$data['width']; ?>"
-         height="<?= (int)$data['height']; ?>"
-         <?= $data['loading']; ?>
-         <?= $data['decoding']; ?>>
+    <img 
+        src="<?= $data['fallback']; ?>"
+        alt="<?= $data['alt']; ?>"
+        width="<?= (int)$data['width']; ?>"
+        height="<?= (int)$data['height']; ?>"
+        <?= $data['loading']; ?>
+        <?= $data['decoding']; ?>>
 </picture>
