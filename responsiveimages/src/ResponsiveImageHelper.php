@@ -210,7 +210,7 @@ final class ResponsiveImageHelper
         if (strpos($sourcePath, '..') !== false || strpos($sourcePath, "\0") !== false) {
             return self::fail('Invalid path: contains traversal sequences.', $isDebug, $debugLog, $options);
         }
-        
+
         $isAbsolutePath =
             str_starts_with($sourcePath, '/') ||
             preg_match('#^[A-Za-z]:/#', $sourcePath);
@@ -381,9 +381,12 @@ final class ResponsiveImageHelper
 
         $lockFile = $thumbnailsBasePath . '/.lock';
         $lockHandle = fopen($lockFile, 'c');
+
         if (!$lockHandle) {
             return self::fail('Failed to create lock file for thumbnail generation.', $isDebug, $debugLog, $options);
         }
+
+        @chmod($lockFile, 0600);
 
         if (flock($lockHandle, LOCK_EX)) {
             try {
