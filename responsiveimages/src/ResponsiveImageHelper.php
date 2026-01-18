@@ -295,9 +295,9 @@ final class ResponsiveImageHelper
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
         $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
 
-        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages/';
+        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
         if ($relativeDirectory !== '') {
-            $thumbnailsBasePath .= $relativeDirectory;
+            $thumbnailsBasePath .= '/' . $relativeDirectory;
         }
 
         if (!is_dir($thumbnailsBasePath)) {
