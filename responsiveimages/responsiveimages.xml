@@ -28,8 +28,8 @@
                     filter="integer" 
                     layout="joomla.form.field.radio.switcher"
                     description="Enable WebP generation by default">
-                    <option value="1">JON</option>
                     <option value="0">JOFF</option>
+                    <option value="1">JON</option>
                 </field>
                 <field 
                     name="lazy" 
@@ -39,8 +39,8 @@
                     filter="integer" 
                     layout="joomla.form.field.radio.switcher"
                     description="Enable lazyloading images by default">
-                    <option value="1">JON</option>
                     <option value="0">JOFF</option>
+                    <option value="1">JON</option>
                 </field>
                 <field 
                     name="widths" 
@@ -79,8 +79,8 @@
                     description="Display debug information in frontend output.This displays data on frontend and breaks layout. This should be turned off on live sites. Ensure cache is disabled to get reliable information." 
                     filter="integer" 
                     layout="joomla.form.field.radio.switcher">
-                    <option value="1">JON</option>
                     <option value="0">JOFF</option>
+                    <option value="1">JON</option>
                 </field>
             </fieldset>
 
