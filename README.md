@@ -8,6 +8,7 @@
 ![Unreleased commits](https://img.shields.io/github/commits-since/web-tiki/joomla-responsive-images/latest)
 
 A Joomla **system plugin** that generates **responsive images** (`srcset`, `sizes`, `<picture>`) from image custom fields and template overrides, with **safe, cacheable thumbnail generation**.
+The plugin generates the thumbnails on the first page load and reuses them on future page loads.
 
 Compatible with **Joomla 5 & Joomla 6**.
 
