@@ -109,7 +109,8 @@ echo LayoutHelper::render(
             'sizes' => '(min-width: 1200px) 50vw, 100vw',
             'widths' => [320, 640, 1024, 1600],
             'quality' => 75,
-            'aspectRatio' => 1.777
+            'aspectRatio' => 1.777,
+            'image-class' => 'responsive-image',
         ]
     ],
     JPATH_PLUGINS . '/system/responsiveimages/layouts'

@@ -157,7 +157,8 @@ final class ResponsiveImageHelper
             'quality'     => (int) ($pluginParams['quality'] ?? 75),
             'alt'         => '',
             'aspectRatio' => null,
-            'debug'       => (bool) ($pluginParams['debug'] ?? false), 
+            'debug'       => (bool) ($pluginParams['debug'] ?? false),
+            'image-class' => '',
         ];
 
         // Merge options
@@ -471,7 +472,8 @@ final class ResponsiveImageHelper
                 'height'     => $originalHeight,
                 'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
                 'decoding'   => 'decoding="async"',
-                'mime_type' => $mimeType,
+                'mime_type'  => $mimeType,
+                'image-class'=> $options['image-class'],
             ],
             'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
         ];        
