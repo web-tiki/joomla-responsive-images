@@ -34,6 +34,119 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
+     * Meta.json helpers
+     * ========================================================== */
+
+    /**
+     * Get the path to the meta.json file for a set of thumbnails
+     */
+    private static function getMetaPath(string $thumbnailsBasePath): string
+    {
+        return $thumbnailsBasePath .  '/. meta.json';
+    }
+
+    /**
+     * Load meta.json if it exists and is valid
+     */
+    private static function loadMeta(string $metaPath): ?array
+    {
+        if (!is_file($metaPath)) {
+            return null;
+        }
+
+        try {
+            $meta = json_decode(file_get_contents($metaPath), true);
+            if (is_array($meta) && isset($meta['version'], $meta['hash'], $meta['thumbnails'])) {
+                return $meta;
+            }
+        } catch (Throwable $e) {
+            // Invalid meta.json, will regenerate
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate meta.json against current source image
+     */
+    private static function validateMeta(? array $meta, string $absolutePath, string $hash): bool
+    {
+        if (!$meta) {
+            return false;
+        }
+
+        // Check if source image hash matches
+        if (($meta['hash'] ?? '') !== $hash) {
+            return false;
+        }
+
+        // Check if source image mtime matches
+        if (($meta['lastModified'] ?? 0) !== filemtime($absolutePath)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if all thumbnails from meta.json still exist on disk
+     */
+    private static function allThumbnailsExist(? array $meta, string $thumbnailsBasePath): bool
+    {
+        if (!$meta || empty($meta['thumbnails'])) {
+            return false;
+        }
+
+        foreach (array_keys($meta['thumbnails']) as $thumbName) {
+            $thumbPath = $thumbnailsBasePath . '/' . $thumbName;
+            if (!is_file($thumbPath)) {
+                return false; // At least one thumbnail is missing
+            }
+        }
+
+        return true; // All thumbnails exist
+    }
+
+    /**
+     * Write meta.json atomically (write-temp-rename pattern)
+     */
+    private static function writeMeta(
+        string $metaPath,
+        array $metadata,
+        bool $isDebug = false,
+        array &$debugLog = []
+    ): bool
+    {
+        try {
+            $tmpPath = tempnam(dirname($metaPath), 'meta_');
+            if (!$tmpPath) {
+                if ($isDebug) $debugLog[] = "Failed to create temp file for meta.json";
+                return false;
+            }
+
+            $jsonData = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            if (file_put_contents($tmpPath, $jsonData) === false) {
+                @unlink($tmpPath);
+                if ($isDebug) $debugLog[] = "Failed to write meta.json content";
+                return false;
+            }
+
+            if (! rename($tmpPath, $metaPath)) {
+                @unlink($tmpPath);
+                if ($isDebug) $debugLog[] = "Failed to rename temp meta.json to final location";
+                return false;
+            }
+
+            @chmod($metaPath, 0644);
+            if ($isDebug) $debugLog[] = "Successfully wrote meta.json";
+            return true;
+        } catch (Throwable $e) {
+            if ($isDebug) $debugLog[] = "Error writing meta.json: " . $e->getMessage();
+            return false;
+        }
+    }
+
+    /* ==========================================================
      * Image helpers
      * ========================================================== */
 
@@ -311,6 +424,72 @@ final class ResponsiveImageHelper
         }
 
         $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
+        $metaPath = self::getMetaPath($thumbnailsBasePath);
+
+        /* ========== NEW:  Check meta.json for cached thumbnails ========== */
+
+        if ($isDebug) $debugLog[] = "Checking for meta.json cache...";
+        $existingMeta = self::loadMeta($metaPath);
+
+        if (self::validateMeta($existingMeta, $absolutePath, $hash)) {
+            if ($isDebug) $debugLog[] = "meta.json is valid. Checking if all thumbnails exist... ";
+
+            // Check if all thumbnails from meta still exist
+            if (self::allThumbnailsExist($existingMeta, $thumbnailsBasePath)) {
+                if ($isDebug) $debugLog[] = "✓ All thumbnails already exist. Skipping Imagick processing! ";
+
+                // Build srcset entries directly from meta. json (NO per-file checks!)
+                $srcsetEntries = [];
+                $webpSrcsetEntries = [];
+
+                foreach ($existingMeta['thumbnails'] as $thumbName => $thumbData) {
+                    $thumbUrl = '/' . self::encodeUrlPath(str_replace(JPATH_ROOT .  '/', '', $thumbnailsBasePath .  '/' . $thumbName));
+
+                    if (str_ends_with($thumbName, '. webp')) {
+                        $webpSrcsetEntries[] = $thumbUrl .  " {$thumbData['width']}w";
+                    } else {
+                        $srcsetEntries[] = $thumbUrl . " {$thumbData['width']}w";
+                    }
+                }
+
+                $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
+                $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
+
+                if (! str_starts_with($normalizedPath, $normalizedRoot)) {
+                    return self::fail('Resolved image path is outside site root. ', $isDebug, $debugLog, $options);
+                }
+
+                $relativePath = ltrim(str_replace($normalizedRoot, '', $normalizedPath), '/');
+                $fallbackSrc = '/' . self::encodeUrlPath($relativePath);
+
+                return [
+                    'ok'    => true,
+                    'error' => null,
+                    'data'  => [
+                        'isSvg'      => false,
+                        'srcset'     => ! $options['webp'] ? implode(', ', $srcsetEntries) : null,
+                        'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
+                        'fallback'   => $fallbackSrc,
+                        'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
+                        'alt'        => htmlspecialchars($altText, ENT_QUOTES),
+                        'width'      => $originalWidth,
+                        'height'     => $originalHeight,
+                        'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
+                        'decoding'   => 'decoding="async"',
+                        'mime_type'  => $mimeType,
+                        'image-class'=> $options['image-class'],
+                    ],
+                    'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
+                ];
+            } else {
+                if ($isDebug) $debugLog[] = "⚠ Some thumbnails are missing.  Will regenerate... ";
+            }
+        } else {
+            if ($isDebug) $debugLog[] = "meta.json is missing or invalid. Will generate thumbnails...";
+        }
+
+        /* ========== END: meta.json check ========== */
+
         $srcsetEntries = [];
         $webpSrcsetEntries = [];
         $resizeJobs = [];
@@ -441,6 +620,44 @@ final class ResponsiveImageHelper
         fclose($lockHandle);
 
         if ($isDebug) $debugLog[] = "Process completed successfully.";
+
+        /* ========== NEW: Write meta.json after thumbnail generation ========== */
+
+        $metadata = [
+            'version'      => '1.0',
+            'sourceFile'   => $relativePath ??  $pathInfo['filename'],
+            'hash'         => $hash,
+            'lastModified' => filemtime($absolutePath),
+            'originalWidth' => $originalWidth,
+            'originalHeight' => $originalHeight,
+            'aspectRatio'  => $aspectRatio,
+            'generated'    => date('c'),
+            'thumbnails'   => [],
+        ];
+
+        // Record all generated thumbnails in meta.json
+        foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
+            if ($thumbnailPath && is_file($thumbnailPath)) {
+                $metadata['thumbnails'][basename($thumbnailPath)] = [
+                    'width'     => $targetWidth,
+                    'height'    => $targetHeight,
+                    'size'      => filesize($thumbnailPath),
+                    'generated' => date('c'),
+                ];
+            }
+            if ($webpPath && is_file($webpPath)) {
+                $metadata['thumbnails'][basename($webpPath)] = [
+                    'width'     => $targetWidth,
+                    'height'    => $targetHeight,
+                    'size'      => filesize($webpPath),
+                    'generated' => date('c'),
+                ];
+            }
+        }
+
+        self::writeMeta($metaPath, $metadata, $isDebug, $debugLog);
+
+        /* ========== END: Write meta.json ========== */
 
         $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
         $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
