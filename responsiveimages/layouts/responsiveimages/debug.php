@@ -11,8 +11,9 @@ declare(strict_types=1);
 
 defined('_JEXEC') or die;
 
-$log     = $displayData['log'] ?? [];
-$options = $displayData['options'] ?? [];
+$log      = $displayData['log'] ?? [];
+$options  = $displayData['options'] ?? [];
+$manifestLog = $displayData['manifestLog'] ?? [];
 ?>
 <div class="ri-debug-container" style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-left:5px solid #0078d4; font-family:monospace; font-size:12px; line-height:1.5; margin: 20px 0; overflow:auto;">
     <strong style="color:#569cd6;">[ResponsiveImages Debug]</strong><br/>
@@ -25,6 +26,11 @@ $options = $displayData['options'] ?? [];
                 <span style="color:#808080;">[<?= sprintf('%02d', $index + 1); ?>]</span> <?= htmlspecialchars($step); ?>
             </div>
         <?php endforeach; ?>
+    </div>
+
+    <div style="margin-top:10px;">
+        <strong style="color:#ce9178;">--- Manifest data ---</strong>
+        <pre style="margin:0; color:#9cdcfe;"><?= json_encode($manifestLog, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES); ?></pre>
     </div>
 
     <div style="margin-top:10px;">

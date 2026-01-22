@@ -1,19 +1,6 @@
 <?php
-declare(strict_types=1);
-
-/**
- * @package     Joomla.Plugin
- * @subpackage  System.ResponsiveImages
- *
- * @copyright   (C) 2026 web-tiki
- * @license     GNU General Public License version 3 or later;
- */
-
 defined('_JEXEC') or die;
 
-/**
- * @var array $displayData The processed image data from the Helper
- */
 $data = $displayData;
 
 if (empty($data)) {
@@ -33,22 +20,27 @@ if (!empty($data['isSvg'])) { ?>
     <?php return; ?>
 <?php } ?>
 
-<?php // Handle Raster Images ?>
+<?php 
+// Handle Raster Images
+// Safely prepare the strings from the child 'sources' array
+$webpSrcsetString = !empty($data['sources']['webpSrcset']) ? implode(', ', $data['sources']['webpSrcset']) : '';
+$stdSrcsetString  = !empty($data['sources']['srcset'])     ? implode(', ', $data['sources']['srcset'])     : '';
+?>
+
 <picture>
-    <?php if (!empty($data['webpSrcset'])) { ?>
+    <?php if ($webpSrcsetString) : ?>
         <source
-            srcset="<?= $data['webpSrcset']; ?>"
+            srcset="<?= $webpSrcsetString; ?>"
             sizes="<?= $data['sizes']; ?>"
             type="image/webp">
-    <?php } ?>
+    <?php endif; ?>
 
-    <?php if (!empty($data['srcset'])) { ?>
+    <?php if ($stdSrcsetString) : ?>
         <source 
-            srcset="<?= $data['srcset']; ?>"
+            srcset="<?= $stdSrcsetString; ?>"
             sizes="<?= $data['sizes']; ?>"
             type="<?= $data['mime_type']; ?>">
-    <?php } ?>
-
+    <?php endif; ?>
 
     <img 
         class="ri-responsiveimage <?= $data['image-class']; ?>"

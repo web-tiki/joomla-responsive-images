@@ -34,119 +34,6 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
-     * Meta.json helpers
-     * ========================================================== */
-
-    /**
-     * Get the path to the meta.json file for a set of thumbnails
-     */
-    private static function getMetaPath(string $thumbnailsBasePath): string
-    {
-        return $thumbnailsBasePath .  '/. meta.json';
-    }
-
-    /**
-     * Load meta.json if it exists and is valid
-     */
-    private static function loadMeta(string $metaPath): ?array
-    {
-        if (!is_file($metaPath)) {
-            return null;
-        }
-
-        try {
-            $meta = json_decode(file_get_contents($metaPath), true);
-            if (is_array($meta) && isset($meta['version'], $meta['hash'], $meta['thumbnails'])) {
-                return $meta;
-            }
-        } catch (Throwable $e) {
-            // Invalid meta.json, will regenerate
-        }
-
-        return null;
-    }
-
-    /**
-     * Validate meta.json against current source image
-     */
-    private static function validateMeta(? array $meta, string $absolutePath, string $hash): bool
-    {
-        if (!$meta) {
-            return false;
-        }
-
-        // Check if source image hash matches
-        if (($meta['hash'] ?? '') !== $hash) {
-            return false;
-        }
-
-        // Check if source image mtime matches
-        if (($meta['lastModified'] ?? 0) !== filemtime($absolutePath)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Check if all thumbnails from meta.json still exist on disk
-     */
-    private static function allThumbnailsExist(? array $meta, string $thumbnailsBasePath): bool
-    {
-        if (!$meta || empty($meta['thumbnails'])) {
-            return false;
-        }
-
-        foreach (array_keys($meta['thumbnails']) as $thumbName) {
-            $thumbPath = $thumbnailsBasePath . '/' . $thumbName;
-            if (!is_file($thumbPath)) {
-                return false; // At least one thumbnail is missing
-            }
-        }
-
-        return true; // All thumbnails exist
-    }
-
-    /**
-     * Write meta.json atomically (write-temp-rename pattern)
-     */
-    private static function writeMeta(
-        string $metaPath,
-        array $metadata,
-        bool $isDebug = false,
-        array &$debugLog = []
-    ): bool
-    {
-        try {
-            $tmpPath = tempnam(dirname($metaPath), 'meta_');
-            if (!$tmpPath) {
-                if ($isDebug) $debugLog[] = "Failed to create temp file for meta.json";
-                return false;
-            }
-
-            $jsonData = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-            if (file_put_contents($tmpPath, $jsonData) === false) {
-                @unlink($tmpPath);
-                if ($isDebug) $debugLog[] = "Failed to write meta.json content";
-                return false;
-            }
-
-            if (! rename($tmpPath, $metaPath)) {
-                @unlink($tmpPath);
-                if ($isDebug) $debugLog[] = "Failed to rename temp meta.json to final location";
-                return false;
-            }
-
-            @chmod($metaPath, 0644);
-            if ($isDebug) $debugLog[] = "Successfully wrote meta.json";
-            return true;
-        } catch (Throwable $e) {
-            if ($isDebug) $debugLog[] = "Error writing meta.json: " . $e->getMessage();
-            return false;
-        }
-    }
-
-    /* ==========================================================
      * Image helpers
      * ========================================================== */
 
@@ -219,27 +106,64 @@ final class ResponsiveImageHelper
      * Error handling
      * ========================================================== */
 
-     private static function fail(string $message, bool $debugMode = false, array $debugLog = [], array $finalOptions = []): array
+     private static function fail(
+        string $message, 
+        bool $debugMode = false, 
+        array $debugLog = [], 
+        array $finalOptions = [], 
+        array $manifestLog = [] ): array
      {
          return [
-             'ok'         => false,
-             'error'      => $message,
-             'data'       => null,
-             'debug_data' => $debugMode ? ['log' => $debugLog, 'options' => $finalOptions] : null,
+            'ok'         => false,
+            'error'      => $message,
+            'data'       => null,
+            'debug_data' => $debugMode ? ['log' => $debugLog, 'options' => $finalOptions, 'manifestLog' => $manifestLog] : null,
          ];
      }
+
+    /* ==========================================================
+     * Manifest handling
+     * ========================================================== */
+    private static function getManifest(string $dir): array
+    {
+        $file = $dir . '/manifest.json';
+        if (is_file($file)) {
+            $content = @file_get_contents($file);
+            return $content ? (json_decode($content, true) ?: []) : [];
+        }
+        return [];
+    }
+
+    private static function updateManifest(string $dir, string $key, array $data): void
+    {
+        $file = $dir . '/manifest.json';
+        $fp = fopen($file, 'c+');
+        if ($fp && flock($fp, LOCK_EX)) {
+            $content = '';
+            while (!feof($fp)) { $content .= fread($fp, 8192); }
+            $manifest = json_decode($content, true) ?: [];
+            $manifest[$key] = $data;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($manifest));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+        }
+    }
 
     /* ==========================================================
      * Public API
      * ========================================================== */
 
-    public static function getProcessedData(
+     public static function getProcessedData(
         mixed $imageField,
         array $options = []
     ): array {
         
         $debugLog = [];
         $debugLog[] = "Initializing plugin.";
+        $manifestLog = [];
 
         /* ---------------- Plugin defaults ---------------- */
 
@@ -342,6 +266,41 @@ final class ResponsiveImageHelper
             return self::fail('Original image file not accessible on disk: ' . $sourcePath, $isDebug, $debugLog, $options);
         }
 
+        /* ---------------- EARLY CACHE CHECK ---------------- */
+
+        $mtime = filemtime($absolutePath);
+        $imagesRootPath = realpath(JPATH_ROOT . '/images');
+        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
+        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages' . ($relativeDirectory !== '' ? '/' . $relativeDirectory : '');
+
+        // Generate unique key based on source and processing options
+        $manifestKey = md5($absolutePath . $mtime . serialize($options['widths']) . $options['quality'] . $options['aspectRatio'] . $options['webp']);
+        
+        $manifest = self::getManifest($thumbnailsBasePath);
+
+        if ($isDebug) $manifestLog[] = $manifest;
+
+        if (isset($manifest[$manifestKey])) {
+            if ($isDebug) $debugLog[] = "Manifest HIT. Early exit triggered.";
+            $cachedData = $manifest[$manifestKey];
+            
+            // Re-apply runtime-specific attributes
+            $cachedData['alt']         = htmlspecialchars($altText !== '' ? $altText : pathinfo($absolutePath, PATHINFO_FILENAME), ENT_QUOTES);
+            $cachedData['sizes']       = htmlspecialchars($options['sizes'], ENT_QUOTES);
+            $cachedData['loading']     = $options['lazy'] ? 'loading="lazy"' : '';
+            $cachedData['image-class'] = $options['image-class'];
+            $cachedData['decoding']    = 'decoding="async"';
+
+            return [
+                'ok'         => true,
+                'error'      => null,
+                'data'       => $cachedData,
+                'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options, 'manifestLog' => $manifestLog] : null,
+            ];
+        }
+
+        /* ---------------- Standard Metadata ---------------- */
+
         $pathInfo  = pathinfo($absolutePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
 
@@ -357,6 +316,15 @@ final class ResponsiveImageHelper
             $altText = $pathInfo['filename'] ?? '';
         }
 
+        /* ---------------- Output directory ---------------- */
+
+        if (!is_dir($thumbnailsBasePath)) {
+            if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
+            if (!mkdir($thumbnailsBasePath, 0755, true)) {
+                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
+            }
+        }
+
         /* ---------------- SVG handling ---------------- */
 
         if ($extension === 'svg') {
@@ -368,20 +336,26 @@ final class ResponsiveImageHelper
                 '/'
             );
 
+            $svgData = [
+                'isSvg'     => true,
+                'src'       => $publicSrc,
+                'width'     => $width ?: null,
+                'height'    => $height ?: null,
+                'mime_type' => $mimeType,
+            ];
+
+            self::updateManifest($thumbnailsBasePath, $manifestKey, $svgData);
+
+            // Add runtime props for current request
+            $svgData['alt']      = htmlspecialchars($altText, ENT_QUOTES);
+            $svgData['loading']  = $options['lazy'] ? 'loading="lazy"' : '';
+            $svgData['decoding'] = 'decoding="async"';
+
             return [
                 'ok'    => true,
                 'error' => null,
-                'data'  => [
-                    'isSvg'     => true,
-                    'src'       => $publicSrc,
-                    'alt'       => htmlspecialchars($altText, ENT_QUOTES),
-                    'width'     => $width ?: null,
-                    'height'    => $height ?: null,
-                    'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
-                    'decoding'  => 'decoding="async"',
-                    'mime_type' => $mimeType,
-                ],
-                'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
+                'data'  => $svgData,
+                'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options, 'manifestLog' => $manifestLog] : null,            
             ];
         }
 
@@ -404,92 +378,7 @@ final class ResponsiveImageHelper
             $aspectRatio = $originalHeight / $originalWidth;
         }
 
-        /* ---------------- Output directory ---------------- */
-
-        $imagesRootPath = realpath(JPATH_ROOT . '/images');
-        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
-
-        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
-        if ($relativeDirectory !== '') {
-            $thumbnailsBasePath .= '/' . $relativeDirectory;
-        }
-
-        if (!is_dir($thumbnailsBasePath)) {
-            if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
-            if (!mkdir($thumbnailsBasePath, 0755, true)) {
-                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
-            }
-        } else {
-            if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
-        }
-
-        $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
-        $metaPath = self::getMetaPath($thumbnailsBasePath);
-
-        /* ========== NEW:  Check meta.json for cached thumbnails ========== */
-
-        if ($isDebug) $debugLog[] = "Checking for meta.json cache...";
-        $existingMeta = self::loadMeta($metaPath);
-
-        if (self::validateMeta($existingMeta, $absolutePath, $hash)) {
-            if ($isDebug) $debugLog[] = "meta.json is valid. Checking if all thumbnails exist... ";
-
-            // Check if all thumbnails from meta still exist
-            if (self::allThumbnailsExist($existingMeta, $thumbnailsBasePath)) {
-                if ($isDebug) $debugLog[] = "✓ All thumbnails already exist. Skipping Imagick processing! ";
-
-                // Build srcset entries directly from meta. json (NO per-file checks!)
-                $srcsetEntries = [];
-                $webpSrcsetEntries = [];
-
-                foreach ($existingMeta['thumbnails'] as $thumbName => $thumbData) {
-                    $thumbUrl = '/' . self::encodeUrlPath(str_replace(JPATH_ROOT .  '/', '', $thumbnailsBasePath .  '/' . $thumbName));
-
-                    if (str_ends_with($thumbName, '. webp')) {
-                        $webpSrcsetEntries[] = $thumbUrl .  " {$thumbData['width']}w";
-                    } else {
-                        $srcsetEntries[] = $thumbUrl . " {$thumbData['width']}w";
-                    }
-                }
-
-                $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
-                $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
-
-                if (! str_starts_with($normalizedPath, $normalizedRoot)) {
-                    return self::fail('Resolved image path is outside site root. ', $isDebug, $debugLog, $options);
-                }
-
-                $relativePath = ltrim(str_replace($normalizedRoot, '', $normalizedPath), '/');
-                $fallbackSrc = '/' . self::encodeUrlPath($relativePath);
-
-                return [
-                    'ok'    => true,
-                    'error' => null,
-                    'data'  => [
-                        'isSvg'      => false,
-                        'srcset'     => ! $options['webp'] ? implode(', ', $srcsetEntries) : null,
-                        'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
-                        'fallback'   => $fallbackSrc,
-                        'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
-                        'alt'        => htmlspecialchars($altText, ENT_QUOTES),
-                        'width'      => $originalWidth,
-                        'height'     => $originalHeight,
-                        'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
-                        'decoding'   => 'decoding="async"',
-                        'mime_type'  => $mimeType,
-                        'image-class'=> $options['image-class'],
-                    ],
-                    'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
-                ];
-            } else {
-                if ($isDebug) $debugLog[] = "⚠ Some thumbnails are missing.  Will regenerate... ";
-            }
-        } else {
-            if ($isDebug) $debugLog[] = "meta.json is missing or invalid. Will generate thumbnails...";
-        }
-
-        /* ========== END: meta.json check ========== */
-
+        $hash = substr(md5($absolutePath . $mtime), 0, 8);
         $srcsetEntries = [];
         $webpSrcsetEntries = [];
         $resizeJobs = [];
@@ -621,44 +510,6 @@ final class ResponsiveImageHelper
 
         if ($isDebug) $debugLog[] = "Process completed successfully.";
 
-        /* ========== NEW: Write meta.json after thumbnail generation ========== */
-
-        $metadata = [
-            'version'      => '1.0',
-            'sourceFile'   => $relativePath ??  $pathInfo['filename'],
-            'hash'         => $hash,
-            'lastModified' => filemtime($absolutePath),
-            'originalWidth' => $originalWidth,
-            'originalHeight' => $originalHeight,
-            'aspectRatio'  => $aspectRatio,
-            'generated'    => date('c'),
-            'thumbnails'   => [],
-        ];
-
-        // Record all generated thumbnails in meta.json
-        foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
-            if ($thumbnailPath && is_file($thumbnailPath)) {
-                $metadata['thumbnails'][basename($thumbnailPath)] = [
-                    'width'     => $targetWidth,
-                    'height'    => $targetHeight,
-                    'size'      => filesize($thumbnailPath),
-                    'generated' => date('c'),
-                ];
-            }
-            if ($webpPath && is_file($webpPath)) {
-                $metadata['thumbnails'][basename($webpPath)] = [
-                    'width'     => $targetWidth,
-                    'height'    => $targetHeight,
-                    'size'      => filesize($webpPath),
-                    'generated' => date('c'),
-                ];
-            }
-        }
-
-        self::writeMeta($metaPath, $metadata, $isDebug, $debugLog);
-
-        /* ========== END: Write meta.json ========== */
-
         $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
         $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
 
@@ -674,25 +525,35 @@ final class ResponsiveImageHelper
 
         $fallbackSrc = '/' . self::encodeUrlPath($relativePath);
 
+        /* ---------------- Final Data Assembly ---------------- */
+
+        $data = [
+            'isSvg'       => false,
+            'sources'   => [
+                'srcset'     => $srcsetEntries,     // Storing as Array
+                'webpSrcset' => $webpSrcsetEntries, // Storing as Array
+            ],
+            'fallback'    => $fallbackSrc,
+            'width'       => $originalWidth,
+            'height'      => $originalHeight,
+            'mime_type'   => $options['webp'] ? 'image/webp' : $mimeType,
+        ];
+
+        // Store result in manifest for next time
+        self::updateManifest($thumbnailsBasePath, $manifestKey, $data);
+
+        // Add dynamic properties for current response
+        $data['sizes']       = htmlspecialchars($options['sizes'], ENT_QUOTES);
+        $data['alt']         = htmlspecialchars($altText, ENT_QUOTES);
+        $data['loading']     = $options['lazy'] ? 'loading="lazy"' : '';
+        $data['decoding']    = 'decoding="async"';
+        $data['image-class'] = $options['image-class'];
 
         return [
-            'ok'    => true,
-            'error' => null,
-            'data'  => [
-                'isSvg'      => false,
-                'srcset'     => !$options['webp'] ? implode(', ', $srcsetEntries) : null,
-                'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
-                'fallback'   => $fallbackSrc,
-                'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
-                'alt'        => htmlspecialchars($altText, ENT_QUOTES),
-                'width'      => $originalWidth,
-                'height'     => $originalHeight,
-                'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
-                'decoding'   => 'decoding="async"',
-                'mime_type'  => $mimeType,
-                'image-class'=> $options['image-class'],
-            ],
-            'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
+            'ok'         => true,
+            'error'      => null,
+            'data'       => $data,
+            'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options, 'manifestLog' => $manifestLog] : null,
         ];        
     }
 }
