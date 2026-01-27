@@ -267,6 +267,7 @@ final class ResponsiveImageHelper
                     'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
                     'decoding'  => 'decoding="async"',
                     'mime_type' => $mimeType,
+                    'image-class'=> $options['image-class'],
                 ],
                 'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
             ];
