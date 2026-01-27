@@ -11,8 +11,16 @@ declare(strict_types=1);
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Plugin\PluginHelper;
 use WebTiki\Plugin\System\ResponsiveImages\ResponsiveImageHelper;
 use Joomla\CMS\Layout\LayoutHelper;
+
+$plugin = PluginHelper::getPlugin('system', 'responsiveimages');
+
+// Plugin disabled → do nothing
+if (!is_object($plugin)) {
+    return;
+}
 
 $imageField = $displayData['imageField'] ?? null;
 $options    = $displayData['options'] ?? [];

@@ -29,23 +29,10 @@ final class ResponsiveImageHelper
         array $callOptions = []
     ): array {
         
-        $debugLog = [];
-        $debugLog[] = "Initializing plugin.";
+        $debugLog = ["Initializing plugin."];
 
-        /* ---------------- Plugin defaults ---------------- */
-
-        $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
-
-        // Plugin disabled → do nothing
-        if (!is_object($plugin)) {
-            return [
-                'ok'    => true,
-                'error' => 'Plugin object not found',
-                'data'  => null,
-            ];
-        }
-
-        [$options, $isDebug] = self::mergeCallDefaultOptions($plugin, $callOptions);
+        /* ---------------- Merge plugin options with call options ---------------- */
+        [$options, $isDebug] = self::mergeCallDefaultOptions($callOptions);
 
         if ($isDebug) $debugLog[] = "Configuration merged successfully.";
 
@@ -363,8 +350,10 @@ final class ResponsiveImageHelper
     /* ==========================================================
      * Merge default and call options to get final options 
      * ========================================================== */
-    private static function mergeCallDefaultOptions(object $plugin, array $callOptions): array
+    private static function mergeCallDefaultOptions(array $callOptions): array
     {
+        $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
+
         $pluginParams = [];
         if (isset($plugin->params)) {
             $pluginParams = json_decode((string) $plugin->params, true) ?: [];
