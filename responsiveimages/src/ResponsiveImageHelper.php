@@ -19,110 +19,14 @@ use Throwable;
 
 final class ResponsiveImageHelper
 {
-    /* ==========================================================
-     * Path & URL helpers
-     * ========================================================== */
-
-    private static function encodeUrlPath(string $path): string
-    {
-        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
-
-        return implode(
-            '/',
-            array_map('rawurlencode', explode('/', $path))
-        );
-    }
-
-    /* ==========================================================
-     * Image helpers
-     * ========================================================== */
-
-    private static function calculateCropBox(
-        int $originalWidth,
-        int $originalHeight,
-        float $aspectRatio
-    ): array {
-        $originalRatio = $originalHeight / $originalWidth;
-
-        if ($originalRatio > $aspectRatio) {
-            $targetHeight = (int) round($originalWidth * $aspectRatio);
-
-            return [
-                $originalWidth,
-                $targetHeight,
-                0,
-                (int) (($originalHeight - $targetHeight) / 2),
-            ];
-        }
-
-        $targetWidth = (int) round($originalHeight / $aspectRatio);
-
-        return [
-            $targetWidth,
-            $originalHeight,
-            (int) (($originalWidth - $targetWidth) / 2),
-            0,
-        ];
-    }
-
-    /* ==========================================================
-     * SVG helpers
-     * ========================================================== */
-
-    private static function getSvgDimensions(string $absolutePath): array
-    {
-        $width  = null;
-        $height = null;
-
-        $svgContent = @file_get_contents($absolutePath);
-        if (!$svgContent) {
-            return [$width, $height];
-        }
-
-        if (
-            preg_match(
-                '/<svg[^>]+width=["\']?([\d.]+)(?:px)?["\']?[^>]*height=["\']?([\d.]+)(?:px)?["\']?/i',
-                $svgContent,
-                $matches
-            )
-        ) {
-            $width  = (int) $matches[1];
-            $height = (int) $matches[2];
-        } elseif (
-            preg_match(
-                '/viewBox=["\']?([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)["\']?/i',
-                $svgContent,
-                $matches
-            )
-        ) {
-            $width  = (int) $matches[3];
-            $height = (int) $matches[4];
-        }
-
-        return [$width, $height];
-    }
-
-    /* ==========================================================
-     * Error handling
-     * ========================================================== */
-
-     private static function fail(string $message, bool $debugMode = false, array $debugLog = [], array $finalOptions = []): array
-     {
-         return [
-             'ok'         => false,
-             'error'      => $message,
-             'data'       => null,
-             'debug_data' => $debugMode ? ['log' => $debugLog, 'options' => $finalOptions] : null,
-         ];
-     }
 
     /* ==========================================================
      * Public API
      * ========================================================== */
 
-    public static function getProcessedData(
+     public static function getProcessedData(
         mixed $imageField,
-        array $options = []
+        array $callOptions = []
     ): array {
         
         $debugLog = [];
@@ -141,32 +45,7 @@ final class ResponsiveImageHelper
             ];
         }
 
-        $pluginParams = [];
-        if (isset($plugin->params)) {
-            $pluginParams = json_decode((string) $plugin->params, true) ?: [];
-        }
-
-        $defaultOptions = [
-            'lazy'        => (bool) ($pluginParams['lazy'] ?? true),
-            'webp'        => (bool) ($pluginParams['webp'] ?? true),
-            'sizes'       => (string) ($pluginParams['sizes'] ?? '100vw'),
-            'widths'      => array_map(
-                'intval',
-                explode(',', $pluginParams['widths'] ?? '480,800,1200,1600,2000,2560')
-            ),
-            'quality'     => (int) ($pluginParams['quality'] ?? 75),
-            'alt'         => '',
-            'aspectRatio' => null,
-            'debug'       => (bool) ($pluginParams['debug'] ?? false),
-            'image-class' => '',
-        ];
-
-        // Merge options
-        $options = array_merge($defaultOptions, $options);
-        $isDebug = (bool) $options['debug'];
-
-        // normalize quality field 1-100
-        $options['quality'] = max(1, min(100, (int) $options['quality']));
+        [$options, $isDebug] = self::mergeCallDefaultOptions($plugin, $callOptions);
 
         if ($isDebug) $debugLog[] = "Configuration merged successfully.";
 
@@ -479,4 +358,139 @@ final class ResponsiveImageHelper
             'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
         ];        
     }
+
+
+    /* ==========================================================
+     * Merge default and call options to get final options 
+     * ========================================================== */
+    private static function mergeCallDefaultOptions(object $plugin, array $callOptions): array
+    {
+        $pluginParams = [];
+        if (isset($plugin->params)) {
+            $pluginParams = json_decode((string) $plugin->params, true) ?: [];
+        }
+
+        $defaultOptions = [
+            'lazy'        => (bool) ($pluginParams['lazy'] ?? true),
+            'webp'        => (bool) ($pluginParams['webp'] ?? true),
+            'sizes'       => (string) ($pluginParams['sizes'] ?? '100vw'),
+            'widths'      => array_map(
+                'intval',
+                explode(',', $pluginParams['widths'] ?? '480,800,1200,1600,2000,2560')
+            ),
+            'quality'     => (int) ($pluginParams['quality'] ?? 75),
+            'alt'         => '',
+            'aspectRatio' => null,
+            'debug'       => (bool) ($pluginParams['debug'] ?? false),
+            'image-class' => '',
+        ];
+
+        // Merge options
+        $options = array_merge($defaultOptions, $callOptions);
+        
+        // normalize quality field 1-100
+        $options['quality'] = max(1, min(100, (int) $options['quality']));
+
+        $isDebug = $options['debug'];
+
+        return [$options, $isDebug];
+
+    }
+
+    /* ==========================================================
+     * Path & URL helpers
+     * ========================================================== */
+
+    private static function encodeUrlPath(string $path): string
+    {
+        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+
+        return implode(
+            '/',
+            array_map('rawurlencode', explode('/', $path))
+        );
+    }
+
+    /* ==========================================================
+     * Image helpers
+     * ========================================================== */
+
+    private static function calculateCropBox(
+        int $originalWidth,
+        int $originalHeight,
+        float $aspectRatio
+    ): array {
+        $originalRatio = $originalHeight / $originalWidth;
+
+        if ($originalRatio > $aspectRatio) {
+            $targetHeight = (int) round($originalWidth * $aspectRatio);
+
+            return [
+                $originalWidth,
+                $targetHeight,
+                0,
+                (int) (($originalHeight - $targetHeight) / 2),
+            ];
+        }
+
+        $targetWidth = (int) round($originalHeight / $aspectRatio);
+
+        return [
+            $targetWidth,
+            $originalHeight,
+            (int) (($originalWidth - $targetWidth) / 2),
+            0,
+        ];
+    }
+
+    /* ==========================================================
+     * SVG helpers
+     * ========================================================== */
+
+    private static function getSvgDimensions(string $absolutePath): array
+    {
+        $width  = null;
+        $height = null;
+
+        $svgContent = @file_get_contents($absolutePath);
+        if (!$svgContent) {
+            return [$width, $height];
+        }
+
+        if (
+            preg_match(
+                '/<svg[^>]+width=["\']?([\d.]+)(?:px)?["\']?[^>]*height=["\']?([\d.]+)(?:px)?["\']?/i',
+                $svgContent,
+                $matches
+            )
+        ) {
+            $width  = (int) $matches[1];
+            $height = (int) $matches[2];
+        } elseif (
+            preg_match(
+                '/viewBox=["\']?([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)["\']?/i',
+                $svgContent,
+                $matches
+            )
+        ) {
+            $width  = (int) $matches[3];
+            $height = (int) $matches[4];
+        }
+
+        return [$width, $height];
+    }
+
+    /* ==========================================================
+     * Error handling
+     * ========================================================== */
+
+     private static function fail(string $message, bool $debugMode = false, array $debugLog = [], array $finalOptions = []): array
+     {
+         return [
+             'ok'         => false,
+             'error'      => $message,
+             'data'       => null,
+             'debug_data' => $debugMode ? ['log' => $debugLog, 'options' => $finalOptions] : null,
+         ];
+     }
 }
