@@ -48,32 +48,32 @@ final class ResponsiveImageHelper
 
         /* ---------------- Extract data from imageField ---------------- */
         [
-            $sourcePath,
+            $originalPath,
             $filePath,
-            $sourceFragment,
+            $originalFragment,
             $pathInfo,
             $extension,
             $mimeType, 
             $altText, 
         ] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
 
-        if (!$sourcePath || empty($sourcePath)) {
+        if (!$originalPath || empty($originalPath)) {
             return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
         }
         if ($filePath === false || empty($filePath)) {
-            return self::fail('Original image file not accessible on disk: ' . $sourcePath, $isDebug, $debugLog, $options);
+            return self::fail('Original image file not accessible on disk: ' . $originalPath, $isDebug, $debugLog, $options);
         }
 
 
         /* ---------------- Get the original image dimesions from the #joomlaImage fragment ---------------- */
-        [$sourceWidth, $sourceHeight] = self::getImageDimensionsFromFragment($sourceFragment, $isDebug, $debugLog);
+        [$originalWidth, $originalHeight] = self::getImageDimensionsFromFragment($originalFragment, $isDebug, $debugLog);
 
 
         /* ---------------- SVG quick Exit ---------------- */
         if ($extension === 'svg') {
             if ($isDebug) $debugLog[] = "SVG file detected. Skipping raster processing.";
-            if(!$sourceWidth || !$sourceHeight) {
-                [$sourceWidth, $sourceHeight] = self::getSvgDimensions($filePath, $isDebug, $debugLog);
+            if(!$originalWidth || !$originalHeight) {
+                [$originalWidth, $originalHeight] = self::getSvgDimensions($filePath, $isDebug, $debugLog) ?: [0, 0];
             }
 
             return [
@@ -81,10 +81,10 @@ final class ResponsiveImageHelper
                 'error' => null,
                 'data'  => [
                     'isSvg'     => true,
-                    'src'       => $sourcePath,
+                    'src'       => $originalPath,
                     'alt'       => $altText,
-                    'width'     => $sourceWidth ?: null,
-                    'height'    => $sourceHeight ?: null,
+                    'width'     => $originalWidth ?: null,
+                    'height'    => $originalHeight ?: null,
                     'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
                     'decoding'  => 'decoding="async"',
                     'mime_type' => $mimeType,
@@ -95,9 +95,10 @@ final class ResponsiveImageHelper
         }
 
         /* ---------------- Raster image ---------------- */
-
-        if ($isDebug) $debugLog[] = "Reading original dimensions via getimagesize().";
-        [$originalWidth, $originalHeight] = getimagesize($filePath) ?: [0, 0];
+        if(!$originalWidth || !$originalHeight) {
+            if ($isDebug) $debugLog[] = "No dimesions found, trying with getimagesize().";
+            [$originalWidth, $originalHeight] = getimagesize($filePath) ?: [0, 0];
+        }
         
         if (!$originalWidth || !$originalHeight) {
             return self::fail('Failed to read dimensions of original image. File might be corrupt.', $isDebug, $debugLog, $options);
@@ -357,17 +358,17 @@ final class ResponsiveImageHelper
         // extract original image path and #joomlaimage fragment
         $originalImagePath = $imageField['imagefile'] ?? '';
 
-        [$sourcePath, $sourceFragment] = explode('#', $originalImagePath, 2);
+        [$originalPath, $originalFragment] = explode('#', $originalImagePath, 2);
 
-        $sourcePath = rawurldecode($sourcePath);
-        $filePath = realpath($sourcePath);
+        $originalPath = rawurldecode($originalPath);
+        $filePath = realpath($originalPath);
         $pathInfo  = pathinfo($filePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
 
-        if ($isDebug) $debugLog[] = "Resolving original image path: " . $sourcePath;
+        if ($isDebug) $debugLog[] = "Resolving original image path: " . $originalPath;
         if ($isDebug) $debugLog[] = "Resolving original file path: " . $filePath;
 
-        if (strpos($sourcePath, '..') !== false || strpos($sourcePath, "\0") !== false) {
+        if (strpos($originalPath, '..') !== false || strpos($originalPath, "\0") !== false) {
             if($isDebug) $debugLog[] = 'Invalid path: contains traversal sequences.';
             return ['',''];
         }
@@ -391,9 +392,9 @@ final class ResponsiveImageHelper
         if($isDebug) $debugLog[] = 'Final alt text : ' . $altText;
 
         return [
-            $sourcePath,
+            $originalPath,
             $filePath,
-            $sourceFragment,
+            $originalFragment,
             $pathInfo,
             $extension,
             $mimeType,
@@ -404,24 +405,24 @@ final class ResponsiveImageHelper
     /* ==========================================================
      * Get width and height of image from original image fragemtn (#joomlaimage...)
      * ========================================================== */
-    private static function getImageDimensionsFromFragment(string $sourceFragment, bool $isDebug = false, array &$debugLog = []): array 
+    private static function getImageDimensionsFromFragment(string $originalFragment, bool $isDebug = false, array &$debugLog = []): array 
     {
-        $sourceWidth = null;
-        $sourceHeight = null;
+        $originalWidth = null;
+        $originalHeight = null;
 
         // Check for #joomlaImage fragment
-        if (str_starts_with($sourceFragment, 'joomlaImage://')) {
-            if ($isDebug) $debugLog[] = "Found joomlaImage fragment: {$sourceFragment}";
+        if (str_starts_with($originalFragment, 'joomlaImage://')) {
+            if ($isDebug) $debugLog[] = "Found joomlaImage fragment: {$originalFragment}";
 
             // Extract the query part after ?
-            $queryPos = strpos($sourceFragment, '?');
+            $queryPos = strpos($originalFragment, '?');
             if ($queryPos !== false) {
-                $query = substr($sourceFragment, $queryPos + 1);
+                $query = substr($originalFragment, $queryPos + 1);
                 parse_str($query, $params);
 
                 if (isset($params['width'])) {
-                    $sourceWidth = (int) $params['width'];
-                    if ($isDebug) $debugLog[] = "Original width from fragment: {$sourceWidth}";
+                    $originalWidth = (int) $params['width'];
+                    if ($isDebug) $debugLog[] = "Original width from fragment: {$originalWidth}";
                 }
 
                 if (isset($params['height'])) {
@@ -435,7 +436,7 @@ final class ResponsiveImageHelper
             if ($isDebug) $debugLog[] = "No joomlaImage fragment found in path.";
         }
 
-        return [$sourceWidth, $sourcHheight];
+        return [$originalWidth, $sourcHheight];
     }
 
     /* ==========================================================
