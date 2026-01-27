@@ -31,6 +31,7 @@ final class ResponsiveImageHelper
         
         $debugLog = ["Initializing plugin."];
 
+
         /* ---------------- Merge plugin options with call options ---------------- */
         [$options, $isDebug] = self::mergeCallDefaultOptions($callOptions);
 
@@ -44,74 +45,46 @@ final class ResponsiveImageHelper
             return self::fail('Invalid widths configuration provided.', $isDebug, $debugLog, $options);
         }
 
-        /* ---------------- Normalize  image field ---------------- */
-        [$sourcePath, $altText] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
 
-        if (!$sourcePath) {
-             return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
+        /* ---------------- Extract data from imageField ---------------- */
+        [
+            $sourcePath,
+            $filePath,
+            $sourceFragment,
+            $pathInfo,
+            $extension,
+            $mimeType, 
+            $altText, 
+        ] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
+
+        if (!$sourcePath || empty($sourcePath)) {
+            return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
         }
-
-        /* ---------------- Path Resolution ---------------- */
-
-        $sourcePath = rawurldecode(explode('#', $sourcePath, 2)[0]);
-        $sourcePath = str_replace('\\', '/', $sourcePath);
-
-        if (strpos($sourcePath, '..') !== false || strpos($sourcePath, "\0") !== false) {
-            return self::fail('Invalid path: contains traversal sequences.', $isDebug, $debugLog, $options);
-        }
-
-        $isAbsolutePath =
-            str_starts_with($sourcePath, '/') ||
-            preg_match('#^[A-Za-z]:/#', $sourcePath);
-
-        if (!$isAbsolutePath) {
-            $sourcePath = rtrim(JPATH_ROOT, '/') . '/' . ltrim($sourcePath, '/');
-        }
-
-        $sourcePath = preg_replace('#/images/images/#', '/images/', $sourcePath, 1);
-        $absolutePath = realpath($sourcePath);
-        
-        if ($isDebug) $debugLog[] = "Resolving original path: " . $sourcePath;
-
-        if ($absolutePath === false) {
+        if ($filePath === false || empty($filePath)) {
             return self::fail('Original image file not accessible on disk: ' . $sourcePath, $isDebug, $debugLog, $options);
         }
 
-        $pathInfo  = pathinfo($absolutePath);
-        $extension = strtolower($pathInfo['extension'] ?? '');
 
-        // Fix MIME Type mapping
-        $mimeType = 'image/' . $extension;
-        if ($extension === 'jpg' || $extension === 'jpeg') {
-            $mimeType = 'image/jpeg';
-        } elseif ($extension === 'svg') {
-            $mimeType = 'image/svg+xml';
-        }
+        /* ---------------- Get the original image dimesions from the #joomlaImage fragment ---------------- */
+        [$sourceWidth, $sourceHeight] = self::getImageDimensionsFromFragment($sourceFragment, $isDebug, $debugLog);
 
-        if ($altText === '') {
-            $altText = $pathInfo['filename'] ?? '';
-        }
 
-        /* ---------------- SVG handling ---------------- */
-
+        /* ---------------- SVG quick Exit ---------------- */
         if ($extension === 'svg') {
             if ($isDebug) $debugLog[] = "SVG file detected. Skipping raster processing.";
-            [$width, $height] = self::getSvgDimensions($absolutePath);
-
-            $publicSrc = '/' . ltrim(
-                str_replace(DIRECTORY_SEPARATOR, '/', str_replace(JPATH_ROOT, '', $absolutePath)),
-                '/'
-            );
+            if(!$sourceWidth || !$sourceHeight) {
+                [$sourceWidth, $sourceHeight] = self::getSvgDimensions($filePath, $isDebug, $debugLog);
+            }
 
             return [
                 'ok'    => true,
                 'error' => null,
                 'data'  => [
                     'isSvg'     => true,
-                    'src'       => $publicSrc,
-                    'alt'       => htmlspecialchars($altText, ENT_QUOTES),
-                    'width'     => $width ?: null,
-                    'height'    => $height ?: null,
+                    'src'       => $sourcePath,
+                    'alt'       => $altText,
+                    'width'     => $sourceWidth ?: null,
+                    'height'    => $sourceHeight ?: null,
                     'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
                     'decoding'  => 'decoding="async"',
                     'mime_type' => $mimeType,
@@ -124,7 +97,7 @@ final class ResponsiveImageHelper
         /* ---------------- Raster image ---------------- */
 
         if ($isDebug) $debugLog[] = "Reading original dimensions via getimagesize().";
-        [$originalWidth, $originalHeight] = getimagesize($absolutePath) ?: [0, 0];
+        [$originalWidth, $originalHeight] = getimagesize($filePath) ?: [0, 0];
         
         if (!$originalWidth || !$originalHeight) {
             return self::fail('Failed to read dimensions of original image. File might be corrupt.', $isDebug, $debugLog, $options);
@@ -143,7 +116,7 @@ final class ResponsiveImageHelper
         /* ---------------- Output directory ---------------- */
 
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
-        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($absolutePath)), DIRECTORY_SEPARATOR);
+        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($filePath)), DIRECTORY_SEPARATOR);
 
         $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
         if ($relativeDirectory !== '') {
@@ -159,7 +132,7 @@ final class ResponsiveImageHelper
             if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
         }
 
-        $hash = substr(md5($absolutePath . filemtime($absolutePath)), 0, 8);
+        $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
         $srcsetEntries = [];
         $webpSrcsetEntries = [];
         $resizeJobs = [];
@@ -240,7 +213,7 @@ final class ResponsiveImageHelper
 
         if (flock($lockHandle, LOCK_EX)) {
             try {
-                $image = new Imagick($absolutePath);
+                $image = new Imagick($filePath);
                 
                 if ($cropBox) {
                     $image->cropImage(...$cropBox);
@@ -292,7 +265,7 @@ final class ResponsiveImageHelper
         if ($isDebug) $debugLog[] = "Process completed successfully.";
 
         $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
-        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $absolutePath);
+        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
 
         if (!str_starts_with($normalizedPath, $normalizedRoot)) {
             return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
@@ -316,7 +289,7 @@ final class ResponsiveImageHelper
                 'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
                 'fallback'   => $fallbackSrc,
                 'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
-                'alt'        => htmlspecialchars($altText, ENT_QUOTES),
+                'alt'        => $altText,
                 'width'      => $originalWidth,
                 'height'     => $originalHeight,
                 'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
@@ -371,24 +344,98 @@ final class ResponsiveImageHelper
     /* ==========================================================
      * Extract data from the image field to return image paths and alt
      * ========================================================== */
-    private static function extractImageFieldData(mixed $imageField, array $options, bool $isDebug, array $debugLog): array
+    private static function extractImageFieldData(mixed $imageField, array $options, bool $isDebug, array &$debugLog): array
     {
+        // normalize imageField (can be a json object or an array)
         if (is_string($imageField)) {
             $imageField = json_decode($imageField, true);
         } elseif (is_object($imageField)) {
             $imageField = (array) $imageField;
         }
 
-        $sourcePath = $imageField['imagefile'] ?? '';
 
-        $altText = '';
-        if (!empty($imageField['alt_text'])) {
-            $altText = trim((string) $imageField['alt_text']);
-        } elseif (!empty($options['alt'])) {
-            $altText = trim((string) $options['alt']);
+        // extract original image path and #joomlaimage fragment
+        $originalImagePath = $imageField['imagefile'] ?? '';
+
+        [$sourcePath, $sourceFragment] = explode('#', $originalImagePath, 2);
+
+        $sourcePath = rawurldecode($sourcePath);
+        $filePath = realpath($sourcePath);
+        $pathInfo  = pathinfo($filePath);
+        $extension = strtolower($pathInfo['extension'] ?? '');
+
+        if ($isDebug) $debugLog[] = "Resolving original image path: " . $sourcePath;
+        if ($isDebug) $debugLog[] = "Resolving original file path: " . $filePath;
+
+        if (strpos($sourcePath, '..') !== false || strpos($sourcePath, "\0") !== false) {
+            if($isDebug) $debugLog[] = 'Invalid path: contains traversal sequences.';
+            return ['',''];
         }
 
-        return [$sourcePath, $altText];
+        // Fix MIME Type mapping
+        $mimeType = 'image/' . $extension;
+        if ($extension === 'jpg' || $extension === 'jpeg') {
+            $mimeType = 'image/jpeg';
+        } elseif ($extension === 'svg') {
+            $mimeType = 'image/svg+xml';
+        }
+
+        // handle alt text if image
+        $altText = '';
+        if (!empty($imageField['alt_text'])) { $altText = trim((string) $imageField['alt_text']); } 
+        elseif (!empty($options['alt'])) { $altText = trim((string) $options['alt']); } 
+        else { $altText = $pathInfo['filename'] ?? ''; }
+
+        $altText = htmlspecialchars($altText, ENT_QUOTES);
+
+        if($isDebug) $debugLog[] = 'Final alt text : ' . $altText;
+
+        return [
+            $sourcePath,
+            $filePath,
+            $sourceFragment,
+            $pathInfo,
+            $extension,
+            $mimeType,
+            $altText,
+        ];
+    }
+
+    /* ==========================================================
+     * Get width and height of image from original image fragemtn (#joomlaimage...)
+     * ========================================================== */
+    private static function getImageDimensionsFromFragment(string $sourceFragment, bool $isDebug = false, array &$debugLog = []): array 
+    {
+        $sourceWidth = null;
+        $sourceHeight = null;
+
+        // Check for #joomlaImage fragment
+        if (str_starts_with($sourceFragment, 'joomlaImage://')) {
+            if ($isDebug) $debugLog[] = "Found joomlaImage fragment: {$sourceFragment}";
+
+            // Extract the query part after ?
+            $queryPos = strpos($sourceFragment, '?');
+            if ($queryPos !== false) {
+                $query = substr($sourceFragment, $queryPos + 1);
+                parse_str($query, $params);
+
+                if (isset($params['width'])) {
+                    $sourceWidth = (int) $params['width'];
+                    if ($isDebug) $debugLog[] = "Original width from fragment: {$sourceWidth}";
+                }
+
+                if (isset($params['height'])) {
+                    $sourcHheight = (int) $params['height'];
+                    if ($isDebug) $debugLog[] = "Original height from fragment: {$sourcHheight}";
+                }
+            } else {
+                if ($isDebug) $debugLog[] = "No query parameters found in fragment.";
+            }
+        } else {
+            if ($isDebug) $debugLog[] = "No joomlaImage fragment found in path.";
+        }
+
+        return [$sourceWidth, $sourcHheight];
     }
 
     /* ==========================================================
@@ -441,12 +488,14 @@ final class ResponsiveImageHelper
      * SVG helpers
      * ========================================================== */
 
-    private static function getSvgDimensions(string $absolutePath): array
+    private static function getSvgDimensions(string $filePath, bool $isDebug, &$debugLog): array
     {
+        if($debugLog) $debugLog[] = 'Geting svg image dimesions from viewBox attribut with preg_match';
+
         $width  = null;
         $height = null;
 
-        $svgContent = @file_get_contents($absolutePath);
+        $svgContent = @file_get_contents($filePath);
         if (!$svgContent) {
             return [$width, $height];
         }
