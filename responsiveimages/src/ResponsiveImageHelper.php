@@ -45,25 +45,7 @@ final class ResponsiveImageHelper
         }
 
         /* ---------------- Normalize  image field ---------------- */
-
-        if (is_string($imageField)) {
-            $imageField = json_decode($imageField, true);
-        } elseif (is_object($imageField)) {
-            $imageField = (array) $imageField;
-        }
-
-        if (!is_array($imageField)) {
-            return self::fail('Invalid image field format (expected string, object, or array).', $isDebug, $debugLog, $options);
-        }
-
-        $sourcePath = $imageField['imagefile'] ?? '';
-
-        $altText = '';
-        if (!empty($imageField['alt_text'])) {
-            $altText = trim((string) $imageField['alt_text']);
-        } elseif (!empty($options['alt'])) {
-            $altText = trim((string) $options['alt']);
-        }
+        [$sourcePath, $altText] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
 
         if (!$sourcePath) {
              return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
@@ -384,6 +366,29 @@ final class ResponsiveImageHelper
 
         return [$options, $isDebug];
 
+    }
+
+    /* ==========================================================
+     * Extract data from the image field to return image paths and alt
+     * ========================================================== */
+    private static function extractImageFieldData(mixed $imageField, array $options, bool $isDebug, array $debugLog): array
+    {
+        if (is_string($imageField)) {
+            $imageField = json_decode($imageField, true);
+        } elseif (is_object($imageField)) {
+            $imageField = (array) $imageField;
+        }
+
+        $sourcePath = $imageField['imagefile'] ?? '';
+
+        $altText = '';
+        if (!empty($imageField['alt_text'])) {
+            $altText = trim((string) $imageField['alt_text']);
+        } elseif (!empty($options['alt'])) {
+            $altText = trim((string) $options['alt']);
+        }
+
+        return [$sourcePath, $altText];
     }
 
     /* ==========================================================
