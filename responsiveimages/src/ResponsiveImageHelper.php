@@ -150,6 +150,7 @@ final class ResponsiveImageHelper
             $originalWidth, 
             $thumbnailsBasePath,
             $pathInfo,
+            $extension,
             $isDebug, 
             $debugLog            
         );
@@ -427,6 +428,7 @@ final class ResponsiveImageHelper
         int $originalWidth, 
         string $thumbnailsBasePath,
         array $pathInfo,
+        string $extension,
         bool $isDebug, 
         array &$debugLog 
     ) :array {
