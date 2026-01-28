@@ -28,8 +28,7 @@ if (!empty($data['isSvg'])) { ?>
         alt="<?= $data['alt']; ?>"
         width="<?= (int)$data['width']; ?>"
         height="<?= (int)$data['height']; ?>"
-        <?= $data['loading']; ?>
-        <?= $data['decoding'] ?? ''; ?>>
+        <?= $data['loading']; ?>>
     <?php return; ?>
 <?php } ?>
 
@@ -56,6 +55,5 @@ if (!empty($data['isSvg'])) { ?>
         alt="<?= $data['alt']; ?>"
         width="<?= (int)$data['width']; ?>"
         height="<?= (int)$data['height']; ?>"
-        <?= $data['loading']; ?>
-        <?= $data['decoding']; ?>>
+        <?= $data['loading']; ?>>
 </picture>
