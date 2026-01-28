@@ -383,7 +383,7 @@ final class ResponsiveImageHelper
                     (int) (($originalHeight - $targetHeight) / 2),
                 ],
                 $originalWidth, 
-                $originalHeight, 
+                $targetHeight, 
                 $aspectRatio
             ];
         }
@@ -393,13 +393,14 @@ final class ResponsiveImageHelper
         return [
             [
                 $targetWidth,
-                $targetHeight,
+                $originalHeight,
                 (int) (($originalWidth - $targetWidth) / 2),
                 0,
             ],
             $targetWidth, 
-            $targetHeight, 
-            $aspectRatio            
+            $originalHeight, 
+            $aspectRatio
+            
         ];
     }
 
