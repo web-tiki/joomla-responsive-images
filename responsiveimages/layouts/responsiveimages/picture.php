@@ -23,7 +23,7 @@ if (empty($data)) {
 // Handle SVG
 if (!empty($data['isSvg'])) { ?>
     <img 
-        class="<?= $data['image-class']; ?>"
+        class="<?= $data['imageClass']; ?>"
         src="<?= $data['src']; ?>"
         alt="<?= $data['alt']; ?>"
         width="<?= (int)$data['width']; ?>"
@@ -50,7 +50,7 @@ if (!empty($data['isSvg'])) { ?>
 
 
     <img 
-        class="ri-responsiveimage <?= $data['image-class']; ?>"
+        class="ri-responsiveimage <?= $data['imageClass']; ?>"
         src="<?= $data['fallback']; ?>"
         alt="<?= $data['alt']; ?>"
         width="<?= (int)$data['width']; ?>"

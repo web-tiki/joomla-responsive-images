@@ -95,7 +95,7 @@ final class ResponsiveImageHelper
                     'height'    => $originalHeight ?: null,
                     'loading'   => $options['lazy'] ? 'loading="lazy"' : '',
                     'mime_type' => $mimeType,
-                    'image-class'=> $options['image-class'],
+                    'imageClass'=> $options['imageClass'] ?? '',
                 ],
                 'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,            
             ];
@@ -194,7 +194,7 @@ final class ResponsiveImageHelper
                 'height'     => $originalHeight,
                 'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
                 'mime_type'  => $mimeType,
-                'image-class'=> $options['image-class'],
+                'imageClass'=> $options['imageClass'] ?? '',
             ],
             'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
         ];        
@@ -239,7 +239,7 @@ final class ResponsiveImageHelper
             'alt'         => '',
             'aspectRatio' => null,
             'debug'       => (bool) ($pluginParams['debug'] ?? false),
-            'image-class' => '',
+            'imageClass' => '',
         ];
 
         // Merge options
