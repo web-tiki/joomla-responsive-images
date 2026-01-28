@@ -123,22 +123,8 @@ final class ResponsiveImageHelper
 
 
         /* ---------------- Output directory ---------------- */
-        $imagesRootPath = realpath(JPATH_ROOT . '/images');
-        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($filePath)), DIRECTORY_SEPARATOR);
-
-        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
-        if ($relativeDirectory !== '') {
-            $thumbnailsBasePath .= '/' . $relativeDirectory;
-        }
-
-        if (!is_dir($thumbnailsBasePath)) {
-            if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
-            if (!mkdir($thumbnailsBasePath, 0755, true)) {
-                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
-            }
-        } else {
-            if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
-        }
+        $thumbnailsBasePath = self::buildThumbDirectory($filePath,$isDebug, $debugLog);
+        
 
         $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
         $srcsetEntries = [];
@@ -491,6 +477,32 @@ final class ResponsiveImageHelper
             $aspectRatio
             
         ];
+    }
+
+    /* ==========================================================
+     * Image helpers
+     * ========================================================== */
+
+    private static function buildThumbDirectory(string $filePath, bool $isDebug, array &$debugLog) :string
+    {
+        $imagesRootPath = realpath(JPATH_ROOT . '/images');
+        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($filePath)), DIRECTORY_SEPARATOR);
+
+        $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
+        if ($relativeDirectory !== '') {
+            $thumbnailsBasePath .= '/' . $relativeDirectory;
+        }
+
+        if (!is_dir($thumbnailsBasePath)) {
+            if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
+            if (!mkdir($thumbnailsBasePath, 0755, true)) {
+                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
+            }
+        } else {
+            if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
+        }
+
+        return $thumbnailsBasePath;
     }
 
     /* ==========================================================
