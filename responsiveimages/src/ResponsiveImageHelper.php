@@ -607,7 +607,7 @@ final class ResponsiveImageHelper
 
     private static function getSvgDimensions(string $originalFilePath, bool $isDebug, &$debugLog): array
     {
-        if($debugLog) $debugLog[] = 'Geting svg image dimensions from viewBox attribut with preg_match';
+        if($isDebug) $debugLog[] = 'Geting svg image dimensions from viewBox attribut with preg_match';
 
         $width  = null;
         $height = null;
