@@ -132,6 +132,9 @@ final class ResponsiveImageHelper
 
         /* ---------------- Build Output directory ---------------- */
         $thumbnailsBasePath = self::buildThumbDirectory($originalFilePath, $isDebug, $debugLog);
+        if(empty($thumbnailsBasePath)) {
+            return self::fail('Cannot create thumbnail directory', $isDebug, $debugLog, $options);
+        }
         
 
 
@@ -404,6 +407,7 @@ final class ResponsiveImageHelper
             if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
             if (!mkdir($thumbnailsBasePath, 0755, true)) {
                 if ($isDebug) $debugLog[] = "Cannot create folder: " . $thumbnailsBasePath;
+                return '';
             }
         } else {
             if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
