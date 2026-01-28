@@ -403,7 +403,7 @@ final class ResponsiveImageHelper
         if (!is_dir($thumbnailsBasePath)) {
             if ($isDebug) $debugLog[] = "Attempting to create directory: " . $thumbnailsBasePath;
             if (!mkdir($thumbnailsBasePath, 0755, true)) {
-                return self::fail('Insufficient permissions to create folder: ' . $thumbnailsBasePath, $isDebug, $debugLog, $options);
+                if ($isDebug) $debugLog[] = "Cannot create folder: " . $thumbnailsBasePath;
             }
         } else {
             if ($isDebug) $debugLog[] = "Folder exists: " . $thumbnailsBasePath;
