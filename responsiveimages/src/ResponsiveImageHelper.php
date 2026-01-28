@@ -113,73 +113,35 @@ final class ResponsiveImageHelper
         if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
 
             [
-                $cropBox, 
-                $originalWidth, 
-                $originalHeight, 
+                $cropBox,
+                $originalWidth,
+                $originalHeight,
                 $aspectRatio
             ] = self::calculateAspectRatioCropBox($originalWidth, $originalHeight, $options['aspectRatio'], $isDebug, $debugLog);
         
         }
 
 
-        /* ---------------- Output directory ---------------- */
-        $thumbnailsBasePath = self::buildThumbDirectory($filePath,$isDebug, $debugLog);
+        /* ---------------- Build Output directory ---------------- */
+        $thumbnailsBasePath = self::buildThumbDirectory($filePath, $isDebug, $debugLog);
         
 
-        $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
-        $srcsetEntries = [];
-        $webpSrcsetEntries = [];
-        $resizeJobs = [];
 
-        $targetWidths = array_unique(array_map('intval', $options['widths']));
-        sort($targetWidths);
-
-        foreach ($targetWidths as $targetWidth) {
-            if ($targetWidth > $originalWidth) $targetWidth = $originalWidth;
-            $targetHeight = (int) round($targetWidth * $aspectRatio);
-            if ($targetWidth <= 0 || $targetHeight <= 0) {
-                continue;
-            }
-
-            // Deduplication logic
-            if (in_array($targetWidth, array_column($resizeJobs, 2), true)) {
-                continue;
-            }
-
-            $baseFilename = sprintf(
-                '%s/%s-%s-q%d-%dx%d',
-                $thumbnailsBasePath,
-                $pathInfo['filename'],
-                $hash,
-                $options['quality'],
-                $targetWidth,
-                $targetHeight
-            );
-
-            $webpPath = $baseFilename . '.webp';
-
-            $resizeJobs[] = [
-                $options['webp'] ? null : $baseFilename . '.' . $extension,
-                $options['webp'] ? $webpPath : null,
-                $targetWidth,
-                $targetHeight,
-            ];
-
-            // JPG / PNG srcset ONLY if webp disabled
-            if (!$options['webp']) {
-                $srcsetEntries[] =
-                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $baseFilename . '.' . $extension))
-                    . " {$targetWidth}w";
-            }
-
-            // WEBP srcset
-            if ($options['webp']) {
-                $webpSrcsetEntries[] =
-                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $webpPath))
-                    . " {$targetWidth}w";
-            }
-
-        }
+        /* ---------------- Build srcset and resizeJobs ---------------- */
+        [
+            $srcsetEntries, 
+            $webpSrcsetEntries, 
+            $resizeJobs
+        ] = self::buildSrcsetAndResizeJobs(
+            $options, 
+            $filePath, 
+            $aspectRatio,
+            $originalWidth, 
+            $thumbnailsBasePath,
+            $pathInfo,
+            $isDebug, 
+            $debugLog            
+        );
 
         if (empty($resizeJobs)) {
             return self::fail('No valid thumbnail sizes generated', $isDebug, $debugLog, $options);
@@ -505,6 +467,90 @@ final class ResponsiveImageHelper
         return $thumbnailsBasePath;
     }
 
+    /* ==========================================================
+     * Build srcsets and resize jobs
+     * ========================================================== */
+
+    private static function buildSrcsetAndResizeJobs(
+        array $options, 
+        string $filePath, 
+        float $aspectRatio,
+        int $originalWidth, 
+        string $thumbnailsBasePath,
+        array $pathInfo,
+        bool $isDebug, 
+        array &$debugLog 
+    ) :array {
+
+        $srcsetEntries = [];
+        $webpSrcsetEntries = [];
+        $resizeJobs = [];
+
+        $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
+
+        // Get the widths that will be outputed
+        $targetWidths = array_unique(array_map('intval', $options['widths']));
+        sort($targetWidths);
+
+        foreach ($targetWidths as $targetWidth) {
+
+            // prevent outputting thumbs bigger than original
+            if ($targetWidth > $originalWidth) $targetWidth = $originalWidth;
+
+            //get target height
+            $targetHeight = (int) round($targetWidth * $aspectRatio);
+
+            if ($targetWidth <= 0 || $targetHeight <= 0) {
+                continue;
+            }
+
+            // Deduplication logic
+            if (in_array($targetWidth, array_column($resizeJobs, 2), true)) {
+                continue;
+            }
+
+            $baseFilename = sprintf(
+                '%s/%s-%s-q%d-%dx%d',
+                $thumbnailsBasePath,
+                $pathInfo['filename'],
+                $hash,
+                $options['quality'],
+                $targetWidth,
+                $targetHeight
+            );
+
+            $webpPath = $baseFilename . '.webp';
+
+            $resizeJobs[] = [
+                $options['webp'] ? null : $baseFilename . '.' . $extension,
+                $options['webp'] ? $webpPath : null,
+                $targetWidth,
+                $targetHeight,
+            ];
+
+            // JPG / PNG srcset ONLY if webp disabled
+            if (!$options['webp']) {
+                $srcsetEntries[] = 
+                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $baseFilename . '.' . $extension))
+                    . " {$targetWidth}w";
+            }
+
+            // WEBP srcset
+            if ($options['webp']) {
+                $webpSrcsetEntries[] =
+                    '/' . self::encodeUrlPath(str_replace(JPATH_ROOT . '/', '', $webpPath))
+                    . " {$targetWidth}w";
+            }
+
+        }
+
+        return [
+            $srcsetEntries, 
+            $webpSrcsetEntries, 
+            $resizeJobs
+        ];
+
+    }
     /* ==========================================================
      * Path & URL helpers
      * ========================================================== */
