@@ -14,6 +14,7 @@ namespace WebTiki\Plugin\System\ResponsiveImages;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\Uri\Uri;
 use Imagick;
 use Throwable;
 
@@ -55,7 +56,12 @@ final class ResponsiveImageHelper
             $extension,
             $mimeType, 
             $altText, 
+            $errorExtractImageFieldData,
         ] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
+
+        if($errorExtractImageFieldData) {
+            return self::fail($errorExtractImageFieldData, $isDebug, $debugLog, $options);
+        }
 
         if (!$originalPath || empty($originalPath)) {
             return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
@@ -64,16 +70,11 @@ final class ResponsiveImageHelper
             return self::fail('Original image file not accessible on disk: ' . $originalPath, $isDebug, $debugLog, $options);
         }
 
-        // Check if filePath is inside site root
-        $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
-        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $originalFilePath);
-        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
-            return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
-        }
-
 
         /* ---------------- Get the original image dimesions from the #joomlaImage fragment ---------------- */
-        [$originalWidth, $originalHeight] = self::getImageDimensionsFromFragment($originalFragment, $isDebug, $debugLog);
+        if($originalFragment) {
+            [$originalWidth, $originalHeight] = self::getImageDimensionsFromFragment($originalFragment, $isDebug, $debugLog);
+        }
 
 
         /* ---------------- SVG quick Exit ---------------- */
@@ -247,25 +248,28 @@ final class ResponsiveImageHelper
             $imageField = (array) $imageField;
         }
 
-
         // extract original image path and #joomlaimage fragment
         $originalImagePath = $imageField['imagefile'] ?? '';
-
-        [$originalPath, $originalFragment] = explode('#', $originalImagePath, 2);
+        $explodedOriginalImagePath = explode('#', $originalImagePath, 2);
+        if(count($explodedOriginalImagePath) > 1) {
+            [$originalPath, $originalFragment] = $explodedOriginalImagePath;
+        } else {
+            [$originalPath, $originalFragment] = [$originalImagePath, null];
+        }
 
         $originalPath = rawurldecode($originalPath);
         $originalFilePath = realpath($originalPath);
-        $pathInfo  = pathinfo($originalFilePath);
+
+        // Check if original image is inside site root
+        if(!realpath($originalPath)) {
+            return ['','','','','','','',"Original image is not inside site root : " . $originalImagePath];
+        }
 
         if ($isDebug) $debugLog[] = "Resolving original image path: " . $originalPath;
         if ($isDebug) $debugLog[] = "Resolving original file path: " . $originalFilePath;
 
-        if (strpos($originalPath, '..') !== false || strpos($originalPath, "\0") !== false) {
-            if($isDebug) $debugLog[] = 'Invalid path: contains traversal sequences.';
-            return ['',''];
-        }
-
         // Fix MIME Type mapping
+        $pathInfo  = pathinfo($originalFilePath);
         $extension = strtolower($pathInfo['extension'] ?? '');
         $mimeType = 'image/' . $extension;
         if ($extension === 'jpg' || $extension === 'jpeg') {
@@ -292,6 +296,7 @@ final class ResponsiveImageHelper
             $extension,
             $mimeType,
             $altText,
+            false,
         ];
     }
 
