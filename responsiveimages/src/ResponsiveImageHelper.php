@@ -325,8 +325,8 @@ final class ResponsiveImageHelper
                 }
 
                 if (isset($params['height'])) {
-                    $sourcHheight = (int) $params['height'];
-                    if ($isDebug) $debugLog[] = "Original height from fragment: {$sourcHheight}";
+                    $originalHeight = (int) $params['height'];
+                    if ($isDebug) $debugLog[] = "Original height from fragment: {$originalHeight}";
                 }
             } else {
                 if ($isDebug) $debugLog[] = "No query parameters found in fragment.";
@@ -335,7 +335,7 @@ final class ResponsiveImageHelper
             if ($isDebug) $debugLog[] = "No joomlaImage fragment found in path.";
         }
 
-        return [$originalWidth, $sourcHheight];
+        return [$originalWidth, $originalHeight];
     }
 
      /* ==========================================================
