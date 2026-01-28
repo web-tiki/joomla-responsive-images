@@ -64,6 +64,13 @@ final class ResponsiveImageHelper
             return self::fail('Original image file not accessible on disk: ' . $originalPath, $isDebug, $debugLog, $options);
         }
 
+        // Check if filePath is inside site root
+        $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
+        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
+        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
+            return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
+        }
+
 
         /* ---------------- Get the original image dimesions from the #joomlaImage fragment ---------------- */
         [$originalWidth, $originalHeight] = self::getImageDimensionsFromFragment($originalFragment, $isDebug, $debugLog);
@@ -149,11 +156,9 @@ final class ResponsiveImageHelper
 
         
         /* ---------------- Imagick Processing ---------------- */
-
         if (!class_exists(Imagick::class)) {
             return self::fail('Imagick extension is not loaded on this server.', $isDebug, $debugLog, $options);
         }
-
         if (!count(Imagick::queryFormats(strtoupper($extension)))) {
             return self::fail('Server Imagick does not support ' . $extension, $isDebug, $debugLog, $options);
         }
@@ -167,25 +172,9 @@ final class ResponsiveImageHelper
             $extension,
             $isDebug, 
             $debugLog);
-
         
 
-        $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
-        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
-
-        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
-            return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
-        }
-        
-
-        $relativePath = ltrim(
-            str_replace($normalizedRoot, '', $normalizedPath),
-            '/'
-        );
-
-        $fallbackSrc = '/' . self::encodeUrlPath($relativePath);
-
-
+        /* ---------------- Build final response ---------------- */
         return [
             'ok'    => true,
             'error' => null,
@@ -193,7 +182,7 @@ final class ResponsiveImageHelper
                 'isSvg'      => false,
                 'srcset'     => !$options['webp'] ? implode(', ', $srcsetEntries) : null,
                 'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
-                'fallback'   => $fallbackSrc,
+                'fallback'   => $originalPath,
                 'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
                 'alt'        => $altText,
                 'width'      => $originalWidth,
