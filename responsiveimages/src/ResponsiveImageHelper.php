@@ -93,7 +93,7 @@ final class ResponsiveImageHelper
             ];
         }
 
-        /* ---------------- Raster image ---------------- */
+        /* ---------------- Get image size if it still doesn't exist  ---------------- */
         if(!$originalWidth || !$originalHeight) {
             if ($isDebug) $debugLog[] = "No dimesions found, trying with getimagesize().";
             [$originalWidth, $originalHeight] = getimagesize($filePath) ?: [0, 0];
@@ -103,18 +103,26 @@ final class ResponsiveImageHelper
             return self::fail('Failed to read dimensions of original image. File might be corrupt.', $isDebug, $debugLog, $options);
         }
 
+
+        /* ---------------- Get original image aspect Ratio ---------------- */
         $aspectRatio = $originalHeight / $originalWidth;
         $cropBox     = null;
 
+
+        /* ---------------- If aspect ratio is fixed in options, Calculate image crop box, new width and new height ---------------- */
         if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
-            if ($isDebug) $debugLog[] = "Calculating crop for Aspect Ratio: " . $options['aspectRatio'];
-            $cropBox = self::calculateCropBox($originalWidth, $originalHeight, (float) $options['aspectRatio']);
-            [$originalWidth, $originalHeight] = [$cropBox[0], $cropBox[1]];
-            $aspectRatio = $originalHeight / $originalWidth;
+
+            [
+                $cropBox, 
+                $originalWidth, 
+                $originalHeight, 
+                $aspectRatio
+            ] = self::calculateAspectRatioCropBox($originalWidth, $originalHeight, $options['aspectRatio'], $isDebug, $debugLog);
+        
         }
 
-        /* ---------------- Output directory ---------------- */
 
+        /* ---------------- Output directory ---------------- */
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
         $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($filePath)), DIRECTORY_SEPARATOR);
 
@@ -437,6 +445,54 @@ final class ResponsiveImageHelper
         return [$originalWidth, $sourcHheight];
     }
 
+     /* ==========================================================
+     * Image helpers
+     * ========================================================== */
+
+     private static function calculateAspectRatioCropBox(
+        int $originalWidth,
+        int $originalHeight,
+        float $aspectRatio,
+        bool $isDebug,
+        array &$debugLog
+    ): array {
+
+        if ($isDebug) $debugLog[] = "Calculating crop for Aspect Ratio: " . $aspectRatio;
+
+        $originalRatio = $originalHeight / $originalWidth;
+
+        if ($originalRatio > $aspectRatio) {
+            $targetHeight = (int) round($originalWidth * $aspectRatio);
+
+            return [
+                [
+                    $originalWidth,
+                    $targetHeight,
+                    0,
+                    (int) (($originalHeight - $targetHeight) / 2),
+                ],
+                $originalWidth, 
+                $originalHeight, 
+                $aspectRatio
+            ];
+        }
+
+        $targetWidth = (int) round($originalHeight / $aspectRatio);
+
+        return [
+            [
+                $targetWidth,
+                $originalHeight,
+                (int) (($originalWidth - $targetWidth) / 2),
+                0,
+            ],
+            $originalWidth, 
+            $originalHeight, 
+            $aspectRatio
+            
+        ];
+    }
+
     /* ==========================================================
      * Path & URL helpers
      * ========================================================== */
@@ -449,38 +505,6 @@ final class ResponsiveImageHelper
             '/',
             array_map('rawurlencode', explode('/', $path))
         );
-    }
-
-    /* ==========================================================
-     * Image helpers
-     * ========================================================== */
-
-    private static function calculateCropBox(
-        int $originalWidth,
-        int $originalHeight,
-        float $aspectRatio
-    ): array {
-        $originalRatio = $originalHeight / $originalWidth;
-
-        if ($originalRatio > $aspectRatio) {
-            $targetHeight = (int) round($originalWidth * $aspectRatio);
-
-            return [
-                $originalWidth,
-                $targetHeight,
-                0,
-                (int) (($originalHeight - $targetHeight) / 2),
-            ];
-        }
-
-        $targetWidth = (int) round($originalHeight / $aspectRatio);
-
-        return [
-            $targetWidth,
-            $originalHeight,
-            (int) (($originalWidth - $targetWidth) / 2),
-            0,
-        ];
     }
 
     /* ==========================================================
