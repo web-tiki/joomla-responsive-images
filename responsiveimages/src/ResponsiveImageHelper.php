@@ -114,12 +114,10 @@ final class ResponsiveImageHelper
         }
 
 
-        /* ---------------- Get original image aspect Ratio ---------------- */
-        $aspectRatio = $originalHeight / $originalWidth;
-        $cropBox     = [];
-
 
         /* ---------------- If aspect ratio is fixed in options, Calculate image crop box, new width and new height ---------------- */
+        $cropBox     = [];
+
         if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
 
             [
@@ -129,6 +127,8 @@ final class ResponsiveImageHelper
                 $aspectRatio
             ] = self::calculateAspectRatioCropBox($originalWidth, $originalHeight, $options['aspectRatio'], $isDebug, $debugLog);
         
+        } else {
+            $aspectRatio = $originalHeight / $originalWidth;
         }
 
 
@@ -138,12 +138,11 @@ final class ResponsiveImageHelper
             return self::fail('Cannot create thumbnail directory', $isDebug, $debugLog, $options);
         }
         
-
-
+        
         /* ---------------- Build srcset and resizeJobs ---------------- */
         [
-            $srcsetEntries, 
-            $webpSrcsetEntries, 
+            $srcsetEntries,
+            $webpSrcsetEntries,
             $resizeJobs
         ] = self::buildSrcsetAndResizeJobs(
             $options, 
@@ -160,6 +159,48 @@ final class ResponsiveImageHelper
 
         if (empty($resizeJobs)) {
             return self::fail('No valid thumbnail sizes generated', $isDebug, $debugLog, $options);
+        }
+
+
+        /* ---------------- Check manifest ---------------- */
+        $manifestFile = $thumbnailsBasePath . '/' . $pathInfo['filename'] . '-' . $hash . '.manifest.json';
+
+        [
+            $toDoBuildManifest,
+            $toDoUpdateManifest,
+        ] = self::checkManifest(
+            $resizeJobs,
+            $manifestFile,
+            $options,
+            $originalFilePath,
+            $aspectRatio,
+            $extension,
+            $isDebug,
+            $debugLog
+        );
+
+        if(!$toDoBuildManifest && !$toDoUpdateManifest) {
+            // all checks have passed, no thumbnails need to be generated, display them now
+            if($isDebug) $debugLog[] = 'Manifest is up to date, outputing result from manifest data.';
+
+            return [
+                'ok'    => true,
+                'error' => null,
+                'data'  => [
+                    'isSvg'      => false,
+                    'srcset'     => !$options['webp'] ? implode(', ', $srcsetEntries) : null,
+                    'webpSrcset' => $options['webp'] ? implode(', ', $webpSrcsetEntries) : null,
+                    'fallback'   => $originalPath,
+                    'sizes'      => htmlspecialchars($options['sizes'], ENT_QUOTES),
+                    'alt'        => $altText,
+                    'width'      => $originalWidth,
+                    'height'     => $originalHeight,
+                    'loading'    => $options['lazy'] ? 'loading="lazy"' : '',
+                    'mime_type'  => $mimeType,
+                    'imageClass'=> $options['imageClass'] ?? '',
+                ],
+                'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
+            ];
         }
 
         
@@ -181,12 +222,12 @@ final class ResponsiveImageHelper
             $isDebug, 
             $debugLog);
 
-
+       
         /* ---------------- Update Manifest ---------------- */
-        
-        $manifestFile = $thumbnailsBasePath . '/' . $pathInfo['filename'] . '-' . $hash . '.manifest.json';
-
-        $manifestResponse = self::updateManifest(
+        self::updateManifest(
+            $toDoBuildManifest,
+            $toDoUpdateManifest,
+            $resizeJobs,
             $manifestFile,
             $srcsetEntries,
             $webpSrcsetEntries,
@@ -196,11 +237,11 @@ final class ResponsiveImageHelper
             $extension,
             $originalWidth,
             $originalHeight,
+            $aspectRatio,
             $mimeType,
-        );
-        
-        if($isDebug) $debugLog[] = $manifestResponse;
-        
+            $isDebug,
+            $debugLog
+        );        
 
         /* ---------------- Build final response ---------------- */
         return [
@@ -224,12 +265,87 @@ final class ResponsiveImageHelper
     }
 
 
+
     
     /* ==========================================================
-     * Creat of update the manifest
+     * Create or update the manifest
      * ========================================================== */
 
-    private static function updateManifest(
+     private static function checkManifest(
+        array $resizeJobs,
+        string $manifestFile,
+        array $options,
+        string $originalFilePath,
+        float $aspectRatio,
+        string $extension,
+        bool $isDebug,
+        array &$debugLog
+    ): array {
+        /*
+        * This returns 2 bool variables : 
+        * $toDoBuildManifest : if true manifest should be built (or rebuilt ex: original image changed)
+        * $toDoUpdateManifest : if true, manifest needs updating to add thumbnails
+        */
+    
+        if (!is_file($manifestFile)) {
+            return [true, false];
+        }
+    
+        $manifest = json_decode((string) file_get_contents($manifestFile), true);
+
+        if (!is_array($manifest) || ($manifest['version'] ?? null) !== 1) {
+            return [true, false];
+            if($isDebug) $debugLog[] = 'Manifest doesn\'t exists';
+        }
+
+        $source = $manifest['source'] ?? [];
+
+        if (
+            ($source['mtime'] ?? null) !== filemtime($originalFilePath) ||
+            ($source['size'] ?? null)  !== filesize($originalFilePath)
+        ) {
+            if($isDebug) $debugLog[] = 'Manifest exists but file has changed';
+            return [true,false];
+        }
+
+        $quality = (string) $options['quality'];
+
+        foreach ($resizeJobs as $index => [, , $width, $height]) {
+            $key = "{$width}x{$height}";
+
+            // ---- JPG / PNG / original format ----
+            if (
+                empty($manifest[$extension][$quality][$key]) ||
+                !is_file(JPATH_ROOT . strtok($manifest[$extension][$quality][$key], ' '))
+            ) {
+                return [false, true];
+            }
+
+            // ---- WEBP ----
+            if (
+                !empty($options['webp']) &&
+                (
+                    empty($manifest['webp'][$quality][$key]) ||
+                    !is_file(JPATH_ROOT . strtok($manifest['webp'][$quality][$key], ' '))
+                )
+            ) {
+                return [false, true];
+            }
+        }
+
+        // all check are passed and all thumbnails exist in the manifest
+        return [false, false];
+    }
+    
+    
+    /* ==========================================================
+     * Create or update the manifest
+     * ========================================================== */
+
+     private static function updateManifest(
+        bool $toDoBuildManifest,
+        bool $toDoUpdateManifest,
+        array $resizeJobs,
         string $manifestFile,
         array $srcsetEntries,
         array $webpSrcsetEntries,
@@ -239,44 +355,61 @@ final class ResponsiveImageHelper
         string $extension,
         int $originalWidth,
         int $originalHeight,
+        float $aspectRatio,
         string $mimeType,
-    ): string {
+        bool $isDebug,
+        array &$debugLog
+    ): void {
+    
 
-        /*
-        if(is_file($manifestFile)) {
-            // update manifest file here
-            return 'Manifest file has been updated';
+        if($toDoBuildManifest) {
+
+            if($isDebug) $debugLog[] = "Manifest doesn't exist yet";
+
+            $manifest = [
+                'version' => 1,
+                'source' => [
+                    'path'   => $originalPath,
+                    'mtime'  => filemtime($originalFilePath),
+                    'size'   => filesize($originalFilePath),
+                    'width'  => $originalWidth,
+                    'height' => $originalHeight,
+                    'mime'   => $mimeType,
+                ],
+            ];
+        } elseif ($toDoUpdateManifest) {
+
+            $manifest = json_decode((string) file_get_contents($manifestFile), true) ?: [];
+            if($isDebug) $debugLog[] = 'Manifest exists, needs update';
+
+        } else {
+            if($isDebug) $debugLog[] = 'Manifest exists and doesn\'t need updating (this should never display)';
         }
-            */
 
-        $manifestData = [
-            'version' => 1,
-            'source' => [
-                'path'     => $originalPath,
-                'mtime'    => filemtime($originalFilePath),
-                'size'     => filesize($originalFilePath),
-                'width'    => $originalWidth,
-                'height'   => $originalHeight,
-                'mime'     => $mimeType,
-            ],
-        ];
+        $quality = (string) $options['quality'];
+    
+        foreach ($resizeJobs as $index => [, , $width, $height]) {
 
-        if ($srcsetEntries) {
-            $manifest[$extension][$options['quality']] = $srcsetEntries;
-        }
-        if ($webpSrcsetEntries) {
-            $manifest['webp'][$options['quality']] = $webpSrcsetEntries;
+            $key    = "{$width}x{$height}";
+    
+            if (!empty($srcsetEntries[$index])) {
+                $manifest[$extension][$quality][$key] = $srcsetEntries[$index];
+            }
+    
+            if (!empty($webpSrcsetEntries[$index])) {
+                $manifest['webp'][$quality][$key] = $webpSrcsetEntries[$index];
+            }
         }
 
-
+        if($isDebug) $debugLog[] = 'Writting manifest';
+    
         file_put_contents(
             $manifestFile,
-            json_encode($manifestData, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT)
+            json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
         @chmod($manifestFile, 0644);
-
-        return 'Manifest file has been created';
     }
+    
     
 
 
