@@ -71,7 +71,7 @@ final class ResponsiveImageHelper
         }
 
 
-        /* ---------------- Get the original image dimesions from the #joomlaImage fragment ---------------- */
+        /* ---------------- Get the original image dimensions from the #joomlaImage fragment ---------------- */
         if($originalFragment) {
             [$originalWidth, $originalHeight] = self::getImageDimensionsFromFragment($originalFragment, $isDebug, $debugLog);
         }
@@ -103,7 +103,7 @@ final class ResponsiveImageHelper
 
         /* ---------------- Get image size if it still doesn't exist  ---------------- */
         if(!$originalWidth || !$originalHeight) {
-            if ($isDebug) $debugLog[] = "No dimesions found, trying with getimagesize().";
+            if ($isDebug) $debugLog[] = "No dimensions found, trying with getimagesize().";
             [$originalWidth, $originalHeight] = getimagesize($originalFilePath) ?: [0, 0];
         }
         
@@ -320,7 +320,7 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
-     * Get width and height of image from original image fragemtn (#joomlaimage...)
+     * Get width and height of image from original image fragment (#joomlaimage...)
      * ========================================================== */
     private static function getImageDimensionsFromFragment(string $originalFragment, bool $isDebug = false, array &$debugLog = []): array 
     {
@@ -518,7 +518,7 @@ final class ResponsiveImageHelper
     }
 
     /* ==========================================================
-     * Genrate thumbnails
+     * Generate thumbnails
      * ========================================================== */
 
      private static function generateThumbnails(
@@ -607,7 +607,7 @@ final class ResponsiveImageHelper
 
     private static function getSvgDimensions(string $originalFilePath, bool $isDebug, &$debugLog): array
     {
-        if($debugLog) $debugLog[] = 'Geting svg image dimesions from viewBox attribut with preg_match';
+        if($debugLog) $debugLog[] = 'Geting svg image dimensions from viewBox attribut with preg_match';
 
         $width  = null;
         $height = null;
