@@ -608,7 +608,7 @@ final class ResponsiveImageHelper
         $width  = null;
         $height = null;
 
-        $svgContent = @file_get_contents($originalFilePath);
+        $svgContent = @file_get_contents($originalFilePath, false, null, 0, 8192);
         if (!$svgContent) {
             return [$width, $height];
         }
