@@ -59,6 +59,8 @@ final class ResponsiveImageHelper
             $errorExtractImageFieldData,
         ] = self::extractImageFieldData($imageField, $options, $isDebug, $debugLog);
 
+        $hash = substr(md5($originalFilePath . filemtime($originalFilePath)), 0, 8);
+
         if($errorExtractImageFieldData) {
             return self::fail($errorExtractImageFieldData, $isDebug, $debugLog, $options);
         }
@@ -151,6 +153,7 @@ final class ResponsiveImageHelper
             $thumbnailsBasePath,
             $pathInfo,
             $extension,
+            $hash,
             $isDebug, 
             $debugLog            
         );
@@ -177,6 +180,26 @@ final class ResponsiveImageHelper
             $extension,
             $isDebug, 
             $debugLog);
+
+
+        /* ---------------- Update Manifest ---------------- */
+        
+        $manifestFile = $thumbnailsBasePath . '/' . $pathInfo['filename'] . '-' . $hash . '.manifest.json';
+
+        $manifestResponse = self::updateManifest(
+            $manifestFile,
+            $srcsetEntries,
+            $webpSrcsetEntries,
+            $options,
+            $originalPath,
+            $originalFilePath,
+            $extension,
+            $originalWidth,
+            $originalHeight,
+            $mimeType,
+        );
+        
+        if($isDebug) $debugLog[] = $manifestResponse;
         
 
         /* ---------------- Build final response ---------------- */
@@ -199,6 +222,63 @@ final class ResponsiveImageHelper
             'debug_data' => $isDebug ? ['log' => $debugLog, 'options' => $options] : null,
         ];        
     }
+
+
+    
+    /* ==========================================================
+     * Creat of update the manifest
+     * ========================================================== */
+
+    private static function updateManifest(
+        string $manifestFile,
+        array $srcsetEntries,
+        array $webpSrcsetEntries,
+        array $options,
+        string $originalPath,
+        string $originalFilePath,
+        string $extension,
+        int $originalWidth,
+        int $originalHeight,
+        string $mimeType,
+    ): string {
+
+        /*
+        if(is_file($manifestFile)) {
+            // update manifest file here
+            return 'Manifest file has been updated';
+        }
+            */
+
+        $manifestData = [
+            'version' => 1,
+            'source' => [
+                'path'     => $originalPath,
+                'mtime'    => filemtime($originalFilePath),
+                'size'     => filesize($originalFilePath),
+                'width'    => $originalWidth,
+                'height'   => $originalHeight,
+                'mime'     => $mimeType,
+            ],
+        ];
+
+        if ($srcsetEntries) {
+            $manifest[$extension][$options['quality']] = $srcsetEntries;
+        }
+        if ($webpSrcsetEntries) {
+            $manifest['webp'][$options['quality']] = $webpSrcsetEntries;
+        }
+
+
+        file_put_contents(
+            $manifestFile,
+            json_encode($manifestData, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT)
+        );
+        @chmod($manifestFile, 0644);
+
+        return 'Manifest file has been created';
+    }
+    
+
 
     /* ==========================================================
      * Path & URL helpers
@@ -443,6 +523,7 @@ final class ResponsiveImageHelper
         string $thumbnailsBasePath,
         array $pathInfo,
         string $extension,
+        string $hash,
         bool $isDebug, 
         array &$debugLog 
     ) :array {
@@ -450,8 +531,6 @@ final class ResponsiveImageHelper
         $srcsetEntries = [];
         $webpSrcsetEntries = [];
         $resizeJobs = [];
-
-        $hash = substr(md5($originalFilePath . filemtime($originalFilePath)), 0, 8);
 
         // Get the widths that will be outputed
         $targetWidths = array_unique(array_map('intval', $options['widths']));
