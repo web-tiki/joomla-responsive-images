@@ -595,7 +595,8 @@ final class ResponsiveImageHelper
         }
 
         fclose($lockHandle);
-        if ($isDebug) $debugLog[] = "Closed lock file : " . $lockFile;
+        @unlink($lockFile);
+        if ($isDebug) $debugLog[] = "Closed and removed lock file : " . $lockFile;
 
         if ($isDebug) $debugLog[] = "Thumbnail generation process completed successfully.";
     }
