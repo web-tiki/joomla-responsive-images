@@ -261,7 +261,8 @@ final class ResponsiveImageHelper
         $originalFilePath = realpath($originalPath);
 
         // Check if original image is inside site root
-        if(!realpath($originalPath)) {
+        $originalImagesRoot = realpath(JPATH_ROOT . '/images');
+        if (!$originalFilePath || !str_starts_with($originalFilePath, $originalImagesRoot)) {
             return ['','','','','','','',"Original image is not inside site root : " . $originalImagePath];
         }
 
