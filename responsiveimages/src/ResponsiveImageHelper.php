@@ -49,7 +49,7 @@ final class ResponsiveImageHelper
         /* ---------------- Extract data from imageField ---------------- */
         [
             $originalPath,
-            $filePath,
+            $originalFilePath,
             $originalFragment,
             $pathInfo,
             $extension,
@@ -60,13 +60,13 @@ final class ResponsiveImageHelper
         if (!$originalPath || empty($originalPath)) {
             return self::fail('No image path found in field.', $isDebug, $debugLog, $options);
         }
-        if ($filePath === false || empty($filePath)) {
+        if ($originalFilePath === false || empty($originalFilePath)) {
             return self::fail('Original image file not accessible on disk: ' . $originalPath, $isDebug, $debugLog, $options);
         }
 
         // Check if filePath is inside site root
         $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
-        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
+        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $originalFilePath);
         if (!str_starts_with($normalizedPath, $normalizedRoot)) {
             return self::fail('Resolved image path is outside site root.', $isDebug, $debugLog, $options);
         }
@@ -80,7 +80,7 @@ final class ResponsiveImageHelper
         if ($extension === 'svg') {
             if ($isDebug) $debugLog[] = "SVG file detected. Skipping raster processing.";
             if(!$originalWidth || !$originalHeight) {
-                [$originalWidth, $originalHeight] = self::getSvgDimensions($filePath, $isDebug, $debugLog) ?: [0, 0];
+                [$originalWidth, $originalHeight] = self::getSvgDimensions($originalFilePath, $isDebug, $debugLog) ?: [0, 0];
             }
 
             return [
@@ -103,7 +103,7 @@ final class ResponsiveImageHelper
         /* ---------------- Get image size if it still doesn't exist  ---------------- */
         if(!$originalWidth || !$originalHeight) {
             if ($isDebug) $debugLog[] = "No dimesions found, trying with getimagesize().";
-            [$originalWidth, $originalHeight] = getimagesize($filePath) ?: [0, 0];
+            [$originalWidth, $originalHeight] = getimagesize($originalFilePath) ?: [0, 0];
         }
         
         if (!$originalWidth || !$originalHeight) {
@@ -130,7 +130,7 @@ final class ResponsiveImageHelper
 
 
         /* ---------------- Build Output directory ---------------- */
-        $thumbnailsBasePath = self::buildThumbDirectory($filePath, $isDebug, $debugLog);
+        $thumbnailsBasePath = self::buildThumbDirectory($originalFilePath, $isDebug, $debugLog);
         
 
 
@@ -141,7 +141,7 @@ final class ResponsiveImageHelper
             $resizeJobs
         ] = self::buildSrcsetAndResizeJobs(
             $options, 
-            $filePath, 
+            $originalFilePath, 
             $aspectRatio,
             $originalWidth, 
             $thumbnailsBasePath,
@@ -165,7 +165,7 @@ final class ResponsiveImageHelper
 
         self::generateThumbnails(
             $resizeJobs, 
-            $filePath, 
+            $originalFilePath, 
             $thumbnailsBasePath, 
             $options,
             $cropBox,
@@ -254,11 +254,11 @@ final class ResponsiveImageHelper
         [$originalPath, $originalFragment] = explode('#', $originalImagePath, 2);
 
         $originalPath = rawurldecode($originalPath);
-        $filePath = realpath($originalPath);
-        $pathInfo  = pathinfo($filePath);
+        $originalFilePath = realpath($originalPath);
+        $pathInfo  = pathinfo($originalFilePath);
 
         if ($isDebug) $debugLog[] = "Resolving original image path: " . $originalPath;
-        if ($isDebug) $debugLog[] = "Resolving original file path: " . $filePath;
+        if ($isDebug) $debugLog[] = "Resolving original file path: " . $originalFilePath;
 
         if (strpos($originalPath, '..') !== false || strpos($originalPath, "\0") !== false) {
             if($isDebug) $debugLog[] = 'Invalid path: contains traversal sequences.';
@@ -286,7 +286,7 @@ final class ResponsiveImageHelper
 
         return [
             $originalPath,
-            $filePath,
+            $originalFilePath,
             $originalFragment,
             $pathInfo,
             $extension,
@@ -384,10 +384,10 @@ final class ResponsiveImageHelper
      * Image helpers
      * ========================================================== */
 
-    private static function buildThumbDirectory(string $filePath, bool $isDebug, array &$debugLog) :string
+    private static function buildThumbDirectory(string $originalFilePath, bool $isDebug, array &$debugLog) :string
     {
         $imagesRootPath = realpath(JPATH_ROOT . '/images');
-        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($filePath)), DIRECTORY_SEPARATOR);
+        $relativeDirectory = trim(str_replace($imagesRootPath, '', dirname($originalFilePath)), DIRECTORY_SEPARATOR);
 
         $thumbnailsBasePath = JPATH_ROOT . '/media/ri-responsiveimages';
         if ($relativeDirectory !== '') {
@@ -412,7 +412,7 @@ final class ResponsiveImageHelper
 
     private static function buildSrcsetAndResizeJobs(
         array $options, 
-        string $filePath, 
+        string $originalFilePath, 
         float $aspectRatio,
         int $originalWidth, 
         string $thumbnailsBasePath,
@@ -425,7 +425,7 @@ final class ResponsiveImageHelper
         $webpSrcsetEntries = [];
         $resizeJobs = [];
 
-        $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
+        $hash = substr(md5($originalFilePath . filemtime($originalFilePath)), 0, 8);
 
         // Get the widths that will be outputed
         $targetWidths = array_unique(array_map('intval', $options['widths']));
@@ -497,7 +497,7 @@ final class ResponsiveImageHelper
 
      private static function generateThumbnails(
         array $resizeJobs, 
-        string $filePath, 
+        string $originalFilePath, 
         string $thumbnailsBasePath, 
         array $options,
         array $cropBox,
@@ -519,7 +519,7 @@ final class ResponsiveImageHelper
 
         if (flock($lockHandle, LOCK_EX)) {
             try {
-                $image = new Imagick($filePath);
+                $image = new Imagick($originalFilePath);
                 
                 if (!empty($cropBox)) {
                     $image->cropImage(...$cropBox);
@@ -595,14 +595,14 @@ final class ResponsiveImageHelper
      * SVG helpers
      * ========================================================== */
 
-    private static function getSvgDimensions(string $filePath, bool $isDebug, &$debugLog): array
+    private static function getSvgDimensions(string $originalFilePath, bool $isDebug, &$debugLog): array
     {
         if($debugLog) $debugLog[] = 'Geting svg image dimesions from viewBox attribut with preg_match';
 
         $width  = null;
         $height = null;
 
-        $svgContent = @file_get_contents($filePath);
+        $svgContent = @file_get_contents($originalFilePath);
         if (!$svgContent) {
             return [$width, $height];
         }
