@@ -532,7 +532,7 @@ final class ResponsiveImageHelper
         array &$debugLog
     ) :void {
 
-        $lockFile = $thumbnailsBasePath . '/.lock';
+        $lockFile = $thumbnailsBasePath . '/' . md5($originalFilePath) . '.lock';
         $lockHandle = fopen($lockFile, 'c');
         if ($isDebug) $debugLog[] = "Created lock file : " . $lockFile;
 
