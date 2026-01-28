@@ -106,7 +106,7 @@ final class ResponsiveImageHelper
 
         /* ---------------- Get original image aspect Ratio ---------------- */
         $aspectRatio = $originalHeight / $originalWidth;
-        $cropBox     = null;
+        $cropBox     = [];
 
 
         /* ---------------- If aspect ratio is fixed in options, Calculate image crop box, new width and new height ---------------- */
@@ -158,67 +158,17 @@ final class ResponsiveImageHelper
             return self::fail('Server Imagick does not support ' . $extension, $isDebug, $debugLog, $options);
         }
 
-        $lockFile = $thumbnailsBasePath . '/.lock';
-        $lockHandle = fopen($lockFile, 'c');
+        self::generateThumbnails(
+            $resizeJobs, 
+            $filePath, 
+            $thumbnailsBasePath, 
+            $options,
+            $cropBox,
+            $extension,
+            $isDebug, 
+            $debugLog);
 
-        if (!$lockHandle) {
-            return self::fail('Failed to create lock file for thumbnail generation.', $isDebug, $debugLog, $options);
-        }
-
-        @chmod($lockFile, 0600);
-
-        if (flock($lockHandle, LOCK_EX)) {
-            try {
-                $image = new Imagick($filePath);
-                
-                if ($cropBox) {
-                    $image->cropImage(...$cropBox);
-                    $image->setImagePage(0, 0, 0, 0);
-                }
-
-                foreach ($resizeJobs as [$thumbnailPath, $webpPath, $targetWidth, $targetHeight]) {
-                    if ($thumbnailPath && !is_file($thumbnailPath)) {
-                        $tmpPath = tempnam(dirname($thumbnailPath), 'ri_');
-                        $resizedImage = clone $image;
-
-                        $resizedImage->resizeImage($targetWidth, $targetHeight, Imagick::FILTER_LANCZOS, 1, true);
-                        $resizedImage->setImageFormat($extension);
-                        $resizedImage->setImageCompressionQuality($options['quality']);
-                        $resizedImage->writeImage($tmpPath);
-
-                        rename($tmpPath, $thumbnailPath);
-                        chmod($thumbnailPath, 0644);
-                        if ($isDebug) $debugLog[] = "Created thumbnail: {$targetWidth}w {$extension}";
-                        $resizedImage->clear();
-                    }
-
-                    if ($options['webp'] && !is_file($webpPath)) {
-                        $tmpPath = tempnam(dirname($webpPath), 'ri_');
-                        $resizedImage = clone $image;
-
-                        $resizedImage->resizeImage($targetWidth, $targetHeight, Imagick::FILTER_LANCZOS, 1, true);
-                        $resizedImage->setImageFormat('webp');
-                        $resizedImage->setImageCompressionQuality($options['quality']);
-                        $resizedImage->writeImage($tmpPath);
-
-                        rename($tmpPath, $webpPath);
-                        chmod($webpPath, 0644);
-                        if ($isDebug) $debugLog[] = "Created thumbnail: {$targetWidth}w webp";
-                        $resizedImage->clear();
-                    }
-                }
-                $image->clear();
-            } catch (Throwable $e) {
-                flock($lockHandle, LOCK_UN);
-                fclose($lockHandle);
-                return self::fail('Processing Error: ' . $e->getMessage(), $isDebug, $debugLog, $options);
-            }
-            flock($lockHandle, LOCK_UN);
-        }
-
-        fclose($lockHandle);
-
-        if ($isDebug) $debugLog[] = "Process completed successfully.";
+        
 
         $normalizedRoot = str_replace(DIRECTORY_SEPARATOR, '/', realpath(JPATH_ROOT));
         $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
@@ -317,7 +267,6 @@ final class ResponsiveImageHelper
         $originalPath = rawurldecode($originalPath);
         $filePath = realpath($originalPath);
         $pathInfo  = pathinfo($filePath);
-        $extension = strtolower($pathInfo['extension'] ?? '');
 
         if ($isDebug) $debugLog[] = "Resolving original image path: " . $originalPath;
         if ($isDebug) $debugLog[] = "Resolving original file path: " . $filePath;
@@ -328,6 +277,7 @@ final class ResponsiveImageHelper
         }
 
         // Fix MIME Type mapping
+        $extension = strtolower($pathInfo['extension'] ?? '');
         $mimeType = 'image/' . $extension;
         if ($extension === 'jpg' || $extension === 'jpeg') {
             $mimeType = 'image/jpeg';
@@ -551,6 +501,93 @@ final class ResponsiveImageHelper
         ];
 
     }
+
+    /* ==========================================================
+     * Genrate thumbnails
+     * ========================================================== */
+
+     private static function generateThumbnails(
+        array $resizeJobs, 
+        string $filePath, 
+        string $thumbnailsBasePath, 
+        array $options,
+        array $cropBox,
+        string $extension,
+        bool $isDebug, 
+        array &$debugLog
+    ) :void {
+
+        $lockFile = $thumbnailsBasePath . '/.lock';
+        $lockHandle = fopen($lockFile, 'c');
+        if ($isDebug) $debugLog[] = "Created lock file : " . $lockFile;
+
+        if (!$lockHandle) {
+            if ($isDebug) $debugLog[] = "Failed to create lock file for thumbnail generation.";
+            return;
+        }
+
+        @chmod($lockFile, 0600);
+
+        if (flock($lockHandle, LOCK_EX)) {
+            try {
+                $image = new Imagick($filePath);
+                
+                if (!empty($cropBox)) {
+                    $image->cropImage(...$cropBox);
+                    $image->setImagePage(0, 0, 0, 0);
+                }
+
+                foreach ($resizeJobs as [$thumbPath, $webpPath, $targetWidth, $targetHeight]) {
+
+                    if($options['webp'] && $webpPath) {
+                        $thumbToGeneratePath = $webpPath;
+                        $thumbExtension = 'webp';
+                    } else {
+                        $thumbToGeneratePath = $thumbPath;
+                        $thumbExtension = $extension;
+                    }
+
+                    if (!is_file($thumbToGeneratePath)) {
+                        $tmpPath = tempnam(dirname($thumbToGeneratePath), 'ri_');
+                        $resizedImage = clone $image;
+
+                        $resizedImage->resizeImage($targetWidth, $targetHeight, Imagick::FILTER_LANCZOS, 1, true);
+                        $resizedImage->setImageFormat($thumbExtension);
+                        $resizedImage->setImageCompressionQuality($options['quality']);
+                        $resizedImage->writeImage($tmpPath);
+
+                        rename($tmpPath, $thumbToGeneratePath);
+                        chmod($thumbToGeneratePath, 0644);
+
+                        if ($isDebug) $debugLog[] = "Created thumbnail: {$targetWidth}w {$thumbExtension}";
+
+                        $resizedImage->clear();
+                    }
+
+
+                }
+                
+                $image->clear();
+
+            } catch (Throwable $e) {
+                flock($lockHandle, LOCK_UN);
+                fclose($lockHandle);
+                
+                if ($isDebug) $debugLog[] = 'Processing Error: ' . $e->getMessage();
+                return;
+            }
+            flock($lockHandle, LOCK_UN);
+        }
+
+        fclose($lockHandle);
+        if ($isDebug) $debugLog[] = "Closed lock file : " . $lockFile;
+
+        if ($isDebug) $debugLog[] = "Thumbnail generation process completed successfully.";
+    }
+
+    
+
+
     /* ==========================================================
      * Path & URL helpers
      * ========================================================== */
