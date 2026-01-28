@@ -200,6 +200,20 @@ final class ResponsiveImageHelper
         ];        
     }
 
+    /* ==========================================================
+     * Path & URL helpers
+     * ========================================================== */
+
+     private static function encodeUrlPath(string $path): string
+     {
+         $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+ 
+         return implode(
+             '/',
+             array_map('rawurlencode', explode('/', $path))
+         );
+     }
+
 
     /* ==========================================================
      * Merge default and call options to get final options 
@@ -383,7 +397,7 @@ final class ResponsiveImageHelper
                 (int) (($originalWidth - $targetWidth) / 2),
                 0,
             ],
-            $originalWidth, 
+            $targetWidth, 
             $originalHeight, 
             $aspectRatio
             
@@ -586,22 +600,6 @@ final class ResponsiveImageHelper
         if ($isDebug) $debugLog[] = "Thumbnail generation process completed successfully.";
     }
 
-    
-
-
-    /* ==========================================================
-     * Path & URL helpers
-     * ========================================================== */
-
-    private static function encodeUrlPath(string $path): string
-    {
-        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
-
-        return implode(
-            '/',
-            array_map('rawurlencode', explode('/', $path))
-        );
-    }
 
     /* ==========================================================
      * SVG helpers
