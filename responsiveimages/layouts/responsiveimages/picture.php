@@ -34,13 +34,7 @@ if (!empty($data['isSvg'])) { ?>
 
 <?php // Handle Raster Images ?>
 <picture>
-    <?php if (!empty($data['webpSrcset'])) { ?>
-        <source
-            srcset="<?= $data['webpSrcset']; ?>"
-            sizes="<?= $data['sizes']; ?>"
-            type="image/webp">
-    <?php } ?>
-
+    
     <?php if (!empty($data['srcset'])) { ?>
         <source 
             srcset="<?= $data['srcset']; ?>"

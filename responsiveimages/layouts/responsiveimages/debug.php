@@ -11,24 +11,42 @@ declare(strict_types=1);
 
 defined('_JEXEC') or die;
 
-$log     = $displayData['log'] ?? [];
-$options = $displayData['options'] ?? [];
-?>
-<div class="ri-debug-container" style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-left:5px solid #0078d4; font-family:monospace; font-size:12px; line-height:1.5; margin: 20px 0; overflow:auto;">
-    <strong style="color:#569cd6;">[ResponsiveImages Debug]</strong><br/>
-    <span>This is debugging information. It can be disabled in the ResponsiveImages plugin options.</span>
-    
-    <div style="margin-top:10px;">
-        <strong style="color:#ce9178;">--- Execution Steps ---</strong>
-        <?php foreach ($log as $index => $step) : ?>
-            <div style="white-space:nowrap;">
-                <span style="color:#808080;">[<?= sprintf('%02d', $index + 1); ?>]</span> <?= htmlspecialchars($step); ?>
-            </div>
-        <?php endforeach; ?>
-    </div>
+$debug = $displayData ?? null;
 
-    <div style="margin-top:10px;">
-        <strong style="color:#ce9178;">--- Merged Options ---</strong>
-        <pre style="margin:0; color:#9cdcfe;"><?= json_encode($options, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES); ?></pre>
-    </div>
+
+
+if (!$debug || empty($debug['events'])) {
+    return;
+}
+?>
+
+<div class="ri-debug-container" style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-left:5px solid #0078d4; font-family:monospace; font-size:12px; line-height:1.5; margin: 20px 0; overflow:auto;">    
+    <details>
+        <summary>
+            <strong style="color:#569cd6;">[ResponsiveImages Debug]</strong>
+            <small>
+                <?= htmlspecialchars($debug['image']) ?>
+                (<?= $debug['total_time'] ?> ms)
+            </small>
+        </summary>
+
+        <ul style="display: block;width: 750px;overflow:auto; padding-bottom: 15px;">
+            <?php foreach ($debug['events'] as $e): ?>
+                <li style="aspect-ratio: initial;border-top:1px solid #474747">
+                    <div style="white-space:nowrap">
+                        <strong style="color:#fff;">[<?= $e['t'] ?>s]</strong>
+                        <?= $e['step'] ?> → <?= $e['event'] ?>
+                    </div>
+
+                    <?php if (!empty($e['data'])): ?>
+                        <details>
+                            <summary>Data</summary>
+                            <pre><?= json_encode($e['data'], JSON_PRETTY_PRINT) ?></pre>
+                        </details>
+                    <?php endif; ?>
+                    
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </details>
 </div>
