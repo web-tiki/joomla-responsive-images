@@ -96,7 +96,7 @@ final class ThumbnailGenerator
                     $baseHeight,
                     \Imagick::FILTER_LANCZOS,
                     1,
-                    false
+                    true
                 );
 
                 // Store working width/height in variables
@@ -120,7 +120,7 @@ final class ThumbnailGenerator
                     $clone = $img; // No need to clone
                 } else {
                     $clone = clone $img;
-                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, false);
+                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, true);
                 }                
 
                 $clone->setImageFormat($thumb->extension);
