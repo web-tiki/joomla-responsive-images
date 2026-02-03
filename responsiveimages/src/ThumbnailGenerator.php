@@ -116,13 +116,8 @@ final class ThumbnailGenerator
                     continue;
                 }
 
-                if ($thumb->width === $workingWidth && $thumb->height === $workingHeight) {
-                    $clone = $img; // No need to clone
-                } else {
-                    $clone = clone $img;
-                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, true);
-                }                
-
+                $clone = clone $img;
+                $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, true);
                 $clone->setImageFormat($thumb->extension);
                 $clone->setImageCompressionQuality($thumb->quality);
 
