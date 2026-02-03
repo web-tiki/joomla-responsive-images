@@ -73,6 +73,21 @@ final class RequestedThumbnail
         );
     }
 
+    /**
+     * Absolute filesystem path of the thumbnail
+     */
+    public function getAbsolutePath(): string
+    {
+        return $this->filePath;
+    }
+
+    /**
+     * Check if the thumbnail file exists on disk
+     */
+    public function exists(): bool
+    {
+        return is_file($this->filePath) && filesize($this->filePath) > 0;
+    }
 
     private static function encodeUrlPath(string $path): string
     {

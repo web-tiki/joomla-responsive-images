@@ -108,13 +108,30 @@ final class ThumbnailManifest
 
         foreach ($set as $thumb) {
 
+            // ❌ Skip thumbnails that failed to generate
+            if (!$thumb->exists()) {
+                $debug->log(
+                    'ThumbnailManifest',
+                    'Skipping thumbnail, file does not exist',
+                    [
+                        'key'  => $thumb->getKey(),
+                        'path' => $thumb->getAbsolutePath(),
+                    ]
+                );
+                continue;
+            }
+        
             $thumbKey = $thumb->getKey();
-            
+        
             $this->data['thumbnails'][$thumbKey]
-                    = $thumb->getSrcsetEntry();
-                    
-                $debug->log('ThumbnailManifest', 'updating manifest with : ' .$thumbKey . ' here : ' . $thumb->getSrcsetEntry());
-        }
+                = $thumb->getSrcsetEntry();
+        
+            $debug->log(
+                'ThumbnailManifest',
+                'Manifest updated',
+                $thumbKey
+            );
+        }           
     }
 
     public function save(DebugTimeline $debug): void
