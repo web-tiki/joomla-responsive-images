@@ -23,6 +23,7 @@ final class ThumbnailGenerator
         OriginalImage $image,
         ThumbnailSet $set,
         array $cropBox,
+        array $options,
         DebugTimeline $debug
     ): void {
         if (!class_exists(\Imagick::class)) {
@@ -51,14 +52,60 @@ final class ThumbnailGenerator
         try {
             $img = new \Imagick($image->filePath);
     
-            if ($cropBox) {
-                $img->cropThumbnailImage(
+            if (
+                is_numeric($options['aspectRatio']) && 
+                $options['aspectRatio'] > 0 &&
+                $image->width != $cropBox['width']
+            ) {
+                $img->cropImage(
                     $cropBox['width'],
-                    $cropBox['height']
+                    $cropBox['height'],
+                    $cropBox['x'],
+                    $cropBox['y']
                 );
                 $img->setImagePage(0, 0, 0, 0);
+                $debug->log('ThumbnailGenerator', 'Cropped original image for generation with this cropBox : ', $cropBox);
+            } else {
+                $debug->log('ThumbnailGenerator', 'No fixed aspectRatio given or cropBox width = original image width, taking original image for generation');
             }
-    
+
+            // Determine max working width (largest requested thumb)
+            $maxWidth = 0;
+            foreach ($set as $thumb) {
+                $maxWidth = max($maxWidth, $thumb->width);
+            }
+            // Never exceed original image size
+            $maxWidth = min($maxWidth, $image->width);
+
+            // Resize ONCE to working size
+            $currentWidth  = $img->getImageWidth();
+            $currentHeight = $img->getImageHeight();
+
+            if ($maxWidth < $currentWidth) {
+                $baseHeight = (int) round(
+                    $maxWidth * $currentHeight / $currentWidth
+                );
+
+                $debug->log('ThumbnailGenerator', 'Resized original image to working size : ' . $maxWidth . 'x' . $baseHeight);
+
+                $img->resizeImage(
+                    $maxWidth,
+                    $baseHeight,
+                    \Imagick::FILTER_LANCZOS,
+                    1,
+                    true
+                );
+
+                // Store working width/height in variables
+                $workingWidth = $maxWidth;
+                $workingHeight = $baseHeight;
+            } else {
+                $workingWidth = $currentWidth;
+                $workingHeight = $currentHeight;
+            }
+
+
+                
             foreach ($set as $thumb) {
                 $path = $thumb->filePath;
 
@@ -66,14 +113,12 @@ final class ThumbnailGenerator
                     continue;
                 }
 
-                $clone = clone $img;
-                $clone->resizeImage(
-                    $thumb->width,
-                    $thumb->height,
-                    \Imagick::FILTER_LANCZOS,
-                    1,
-                    true
-                );
+                if ($thumb->width === $workingWidth && $thumb->height === $workingHeight) {
+                    $clone = $img; // No need to clone
+                } else {
+                    $clone = clone $img;
+                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, true);
+                }                
 
                 $clone->setImageFormat($thumb->extension);
                 $clone->setImageCompressionQuality($thumb->quality);

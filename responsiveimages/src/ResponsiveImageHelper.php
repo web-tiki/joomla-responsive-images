@@ -69,6 +69,13 @@ final class ResponsiveImageHelper
         if (is_numeric($options['aspectRatio']) && $options['aspectRatio'] > 0) {
             $thumbRatio = $options['aspectRatio'];
             $cropBox = self::calculateAspectRatioCropBox($image->width, $image->height, $image->ratio, (float)$options['aspectRatio'], $debug);
+        } else {
+            $cropBox = [
+                'width'  => $image->width,
+                'height' => $image->height,
+                'x'      => 0,
+                'y'      => 0,
+            ];
         }
 
         /* ---------- Thumbnails directory ---------- */
@@ -104,6 +111,7 @@ final class ResponsiveImageHelper
                 $image,
                 $generationSet,
                 $cropBox,
+                $options,
                 $debug
             );            
 
@@ -269,40 +277,39 @@ final class ResponsiveImageHelper
 
     private static function calculateAspectRatioCropBox(int $w, int $h, float $originalRatio, float $thumbRatio, DebugTimeline $debug): array
     {
+
+        $cropBox = [
+            'width'  => $w,
+            'height' => $h,
+            'x'      => 0,
+            'y'      => 0,
+        ];
         
         if ($originalRatio > $thumbRatio) {
+            // Image is wider than target ratio → crop width
+            $targetWidth = (int) round($h * $thumbRatio);
+            $cropBox['width']  = $targetWidth;
+            $cropBox['height'] = $h;
+            $cropBox['x']      = (int) round(($w - $targetWidth) / 2); // center crop horizontally
+            $cropBox['y']      = 0;
+        } elseif ($originalRatio < $thumbRatio) {
+            // Image is taller than target ratio → crop height
             $targetHeight = (int) round($w / $thumbRatio);
-
-            $debug->log('ResponsiveImageHelper', 'Calculating aspect ratio, $originalRatio > $thumbRatio', [
-                'Original ratio' => $originalRatio,
-                'Thumbnail ratio'=> $thumbRatio,
-                'Original width' => $w,
-                'Thumbnail width' => $w,
-                'Orginal height' => $h,
-                'Thumbnail height' => $targetHeight
-            ]);
-
-            return [
-                'width' => $w,
-                'height' => $targetHeight
-            ];
+            $cropBox['width']  = $w;
+            $cropBox['height'] = $targetHeight;
+            $cropBox['x']      = 0;
+            $cropBox['y']      = (int) round(($h - $targetHeight) / 2); // center crop vertically
         }
+        
+        // else: ratios match, full image → no crop, x=y=0
 
-        $targetWidth = (int) round($h * $thumbRatio);
-
-        $debug->log('ResponsiveImageHelper', 'Calculating aspect ratio, $originalRatio <= $thumbRatio', [
+        $debug->log('ResponsiveImageHelper', 'Calculated CropBox', [
             'Original ratio' => $originalRatio,
             'Thumbnail ratio'=> $thumbRatio,
-            'Original width' => $w,
-            'Thumbnail width' => $targetWidth,
-            'Orginal height' => $h,
-            'Thumbnail height' => $h
+            'CropBox' => $cropBox
         ]);
 
-        return [
-            'width' => $targetWidth,
-            'height' => $h,
-        ];
+        return $cropBox;
     }
 
     private static function buildThumbDirectory(string $filePath, DebugTimeline $debug): string
