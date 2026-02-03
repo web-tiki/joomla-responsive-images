@@ -26,18 +26,27 @@ final class ThumbnailGenerator
         DebugTimeline $debug
     ): void {
         if (!class_exists(\Imagick::class)) {
+            $debug->log(
+                'ThumbnailGenerator',
+                'Imagick not available, generation aborted'
+            );
             return;
         }
+        
     
         $lockFile = JPATH_ROOT
             . '/media/ri-responsiveimages/.locks/'
             . sha1($image->hash . serialize($cropBox))
             . '.lock';
-    
+
+        $lockAcquired = false;
+
         if (!self::acquireLock($lockFile, $debug)) {
             $debug->log('ThumbnailGenerator', 'Generation locked, skipping');
             return;
         }
+
+        $lockAcquired = true;
     
         try {
             $img = new \Imagick($image->filePath);
@@ -68,8 +77,27 @@ final class ThumbnailGenerator
 
                 $clone->setImageFormat($thumb->extension);
                 $clone->setImageCompressionQuality($thumb->quality);
-                $clone->writeImage($path);
-                $clone->clear();
+
+                $dir = dirname($path);
+                if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+                    $debug->log(
+                        'ThumbnailGenerator',
+                        'Cannot create thumbnail directory',
+                        ['dir' => $dir]
+                    );
+                    continue;
+                }
+
+                if (!$clone->writeImage($path)) {
+                    $debug->log(
+                        'ThumbnailGenerator',
+                        'Failed to write thumbnail',
+                        ['path' => $path]
+                    );
+                    $clone->clear();
+                    continue;
+                }
+
                 
                 $debug->log('ThumbnailGenerator', 'Generated thumbnail : ' . $thumb->width . 'x' . $thumb->height . ' ' . $thumb->extension );
             }
@@ -81,7 +109,9 @@ final class ThumbnailGenerator
                 'error' => $e->getMessage()
             ]);
         } finally {
-            self::releaseLock($lockFile, $debug);
+            if ($lockAcquired) {
+                self::releaseLock($lockFile, $debug);
+            }
         }
     }
     
