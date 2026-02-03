@@ -124,16 +124,18 @@ final class ResponsiveImageHelper
             $manifest->save($debug);
         }
 
+        // Get fallback thumb if it exists
+        $fallbackThumb = $thumbnailSet->getFallBack();
 
         /* ---------- Srcsets ---------- */
         return self::buildFinalResponse(true, null, [
             'isSvg' => false,
-            'fallback' => $thumbnailSet->getFallBack() ?? $image->path,
+            'fallback' => $fallbackThumb ? $fallbackThumb->getUrl() : $image->path,
             'srcset' => implode(', ', $thumbnailSet->getSrcset()),
             'sizes' => htmlspecialchars($options['sizes'], ENT_QUOTES),
             'alt' => $image->alt,
-            'width' => $image->width,
-            'height' => $image->height,
+            'width' => $fallbackThumb ? $fallbackThumb->width  : $image->width,
+            'height' => $fallbackThumb ? $fallbackThumb->height : $image->height,
             'loading' => $options['lazy'] ? 'loading="lazy"' : '',
             'mime_type' => $image->mimeType,
             'imageClass' => $options['imageClass'] ?? '',

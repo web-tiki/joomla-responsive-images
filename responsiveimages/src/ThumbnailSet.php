@@ -86,14 +86,14 @@ final class ThumbnailSet implements \IteratorAggregate, \Countable
         return $srcset;
     }
 
-    public function getFallBack(): string
+    public function getFallBack(): ?RequestedThumbnail
     {
         foreach ($this as $thumb) {
-            if($thumb->isFallback()){
-                return $thumb->getUrl();
+            if ($thumb->isFallback()) {
+                return $thumb;
             }
         }
-        return '';
+        return null;
     }
 
 }
