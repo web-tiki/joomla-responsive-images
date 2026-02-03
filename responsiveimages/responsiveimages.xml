@@ -9,7 +9,7 @@
     <copyright>(C) 2026 Daniel Molinier</copyright>
     <license>GNU General Public License version 3 or later</license>
     <authorEmail>hello@web-tiki.com</authorEmail>
-    <version>0.2.3</version>
+    <version>0.2.4</version>
     <description>PLG_SYSTEM_RESPONSIVEIMAGES_XML_DESCRIPTION</description>
     <files>
         <filename plugin="responsiveimages">responsiveimages.php</filename>
