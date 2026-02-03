@@ -8,7 +8,7 @@
 ![Unreleased commits](https://img.shields.io/github/commits-since/web-tiki/joomla-responsive-images/latest)
 
 A Joomla **system plugin** that generates **responsive images** (`srcset`, `sizes`, `<picture>`) from image custom fields and template overrides, with **safe, cacheable thumbnail generation**.
-The plugin generates the thumbnails on the first page load and reuses them on future page loads.
+The plugin generates thumbnails on first page load and reuses them on subsequent page loads.
 
 Compatible with **Joomla 5 & Joomla 6**.
 
@@ -16,28 +16,29 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ## ✨ Features
 
-- Responsive image generation (`srcset`, `sizes`) with `<picture>` output
-- **Width-based thumbnails**
-- **Never upscales images**
-- Preserves original image **subfolder structure**
-- Automatic thumbnail caching
-- WebP support (optional)
-- Lazy-loading support (optional)
-- Layout-based rendering (fully overrideable)
-- Secure filesystem handling
-- SVG source images support
+* Responsive image generation (`srcset`, `sizes`) with `<picture>` output
+* **Width-based thumbnails** with automatic scaling
+* **Never upscales images** beyond original dimensions
+* Automatic **fallback image** generation
+* Preserves original image **subfolder structure**
+* Hash-based cache invalidation
+* Optional **WebP** support
+* Optional **lazy-loading**
+* Full template/layout override support
+* **SVG support** (SVG images bypass resizing)
+* Safe filesystem handling with locks and TTL
 
 ---
 
 ## 📦 Installation
 
 1. **Download the latest release:**
-   https://github.com/web-tiki/joomla-responsive-images/releases
-
+   [https://github.com/web-tiki/joomla-responsive-images/releases](https://github.com/web-tiki/joomla-responsive-images/releases)
 2. Install via **Extensions → Install**
 3. Enable the plugin:
+
    ```
-   System → Responsive Images
+   System → web-tiki Responsive Images
    ```
 
 ---
@@ -46,54 +47,53 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ### Original images and thumbnail directory
 
-The original images must be in the default `/images/` folder.
-The thumbnails are created in the `/media/ri-responsiveimages/` folder and keep the folder structure of the original image (relative to the `/images/` folder). 
+* Original images must be in `/images/` folder
+* Thumbnails are created in `/media/ri-responsiveimages/` and mirror the original folder structure
 
-Example : 
-An original image in the folder `/images/parcs/new york/` will generate thumbnails in the folder `/media/ri-responsiveimages/parcs/new york/`.
-
----
+Example: `/images/parcs/new york/` → `/media/ri-responsiveimages/parcs/new york/`
 
 ### Debug mode
 
-**This breaks layout by displaying debug information on the frontend !**
+* Displays debug information on the frontend (breaks layout!)
+* Disabled by default for production
+* Ensure cache is disabled to see accurate debug info
 
-This is disabled by default and should be on production sites. It is intended to debug the plugin and show where is fails if it does.
-
-**Ensure cache is disabled to get reliable information here**
-
+---
 
 ## 🧩 Usage
 
-### Basic usage (template or override)
-
-
+### Basic usage (template override)
 
 ```php
 use Joomla\CMS\Layout\LayoutHelper;
 
-echo LayoutHelper::render('responsiveimages.image',['imageField' => $imageField],JPATH_PLUGINS . '/system/responsiveimages/layouts');
+echo LayoutHelper::render(
+    'responsiveimages.image',
+    ['imageField' => $imageField],
+    JPATH_PLUGINS . '/system/responsiveimages/layouts'
+);
 ```
-This will use all the default options to generate the thumbnails :
-*(Most of these default values are customizable in the plugin options.)*
+
+**Default options used:**
 
 ```php
 $defaults = [
     'lazy'        => true,
     'webp'        => true,
     'sizes'       => '100vw',
-    'widths'      => '480, 800, 1200, 1600, 2000, 2560',
+    'widths'      => [480, 800, 1200, 1600, 2000, 2560],
     'quality'     => 75,
     'alt'         => '',
     'aspectRatio' => null,
 ];
 ```
 
-The alt from the image media field will still be used if it exists and the image aspect ratio of the original image will be respected.
+* Original image aspect ratio is respected
+* Media field `alt` is used if available
 
 ---
 
-## 🧩 Usage with ALL available options
+### Advanced usage with custom options
 
 ```php
 use Joomla\CMS\Layout\LayoutHelper;
@@ -104,13 +104,13 @@ echo LayoutHelper::render(
         'imageField' => $imageField,
         'options' => [
             'lazy' => true,
-            'webp' => true,
+            'webp' => false,
             'alt' => 'Custom fallback alt text',
             'sizes' => '(min-width: 1200px) 50vw, 100vw',
             'widths' => [320, 640, 1024, 1600],
-            'quality' => 75,
+            'quality' => 85,
             'aspectRatio' => 1.777,
-            'image-class' => 'responsive-image',
+            'imageClass' => 'responsive-image',
         ]
     ],
     JPATH_PLUGINS . '/system/responsiveimages/layouts'
@@ -119,63 +119,83 @@ echo LayoutHelper::render(
 
 ### Alt text priority
 
-1. Image media field alt text
+1. Media field `alt` text
 2. `alt` option from override
 3. Image filename
 
+### WebP option
 
-### Webp option
-
-When enabled, the plugin doesn't generate any raster thumbnails (.jpg or .png), only .webp thumbnails are genrated.
-The original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-RELATIVE-PATH-HERE" />`.
-
+* When enabled, only `.webp` thumbnails are generated
+* A fallback with original image format (.jpg of .png) is generated
 
 ---
 
-## 🧠 Options
+## 🧠 Options Reference
 
-| Option | Type | Description |
-|------|------|-------------|
-| lazy | bool | loading="lazy" |
-| webp | bool | Generate WebP |
-| alt | string | Fallback alt |
-| sizes | string | sizes attribute |
-| widths | array | Thumbnail widths |
-| quality | int | 1–100 |
-| aspectRatio | float | height / width |
-| debug | bool | display debug information on the frontend |
+| Option      | Type   | Description                    |
+| ----------- | ------ | ------------------------------ |
+| lazy        | bool   | `loading="lazy"` attribute     |
+| webp        | bool   | Generate WebP thumbnails       |
+| alt         | string | Fallback alt text              |
+| sizes       | string | `sizes` attribute for srcset   |
+| widths      | array  | Thumbnail widths to generate   |
+| quality     | int    | JPEG/WebP quality 1–100        |
+| aspectRatio | float  | Fixed height/width ratio       |
+| debug       | bool   | Display debug info on frontend |
+| imageClass  | string | CSS class for `<img>`          |
+
+---
+
+## 🔄 How It Works (Pipeline)
+
+1. **Input:** original image from media field
+2. **Options merge:** default plugin options + override options
+3. **Original image metadata extraction:** width, height, hash, extension
+4. **If original image is SVG:** quick exist without generating anything. SVG image is displayed with the `<img/>` tag
+5. **Aspect ratio handling:** crop box computed if aspectRatio option is set
+6. **Get the Requested thumbnails:**
+
+   * All requested widths
+   * Widths > original image → generate original-size thumbnail and stop
+   * Fallback: largest width capped at original width and 1280px
+6. **Manifest loading:** `.manifest.json` file for caching 
+7. **If manifest is up to date:** got to step 10
+8. **Thumbnail generation:** using Imagick, locks ensure concurrent safety, TTL prevents stale locks
+9. **Manifest updated and saved**
+10. **Final HTML response:** `<picture>` element with `<source>` and `<img>` tags, including fallback and srcset
 
 ---
 
 ## 🔐 Security
 
-- Thumbnails stay inside `/media/ri-responsiveimages/`
-- Safe concurrent generation
+* Thumbnails generated only inside `/media/ri-responsiveimages/`
+* Safe concurrent generation using lock files and TTL
+* Hash-based invalidation prevents stale thumbnails
 
 ---
 
 ## 🚀 Performance & Caching
 
-- Thumbnails generated once
-- Hash-based cache invalidation
-- Subfolder mirroring improves FS performance
+* Thumbnails generated **once** per hash + width + quality
+* Subfolder mirroring improves filesystem performance
+* Locking prevents multiple simultaneous generation
 
 ---
 
 ## 🛠️ Supported Formats
 
-- JPEG
-- PNG
-- SVG (SVG images are not resized and are rendered as `<img>` elements)
-- WebP (optional)
+* JPEG
+* PNG
+* SVG (not resized, output as `<img>`)
+* WebP (optional)
 
 ---
 
 ## 🧪 Requirements
 
-- PHP ≥ 8.2
-- Imagick enabled
-- Space on your server. This plugin can generate many thumbnails from your images and therefore needs space to write them on your server.
+* PHP ≥ 8.2
+* Imagick enabled
+* Sufficient disk space for thumbnails
 
 ---
 
@@ -184,4 +204,5 @@ The original image is used as a fallback in the `<img src="ORIGINAL-IMAGE-RELATI
 GPL v2 or later
 
 ---
+
 Created by [web-tiki](https://web-tiki.com/)
