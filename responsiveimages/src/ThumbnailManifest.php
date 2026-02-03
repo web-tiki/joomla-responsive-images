@@ -128,8 +128,7 @@ final class ThumbnailManifest
         
             $debug->log(
                 'ThumbnailManifest',
-                'Manifest updated',
-                $thumbKey
+                'Manifest updated. Thumbkey : ' . $thumbKey
             );
         }           
     }
@@ -173,7 +172,7 @@ final class ThumbnailManifest
             $debug->log(
                 'ThumbnailManifest',
                 'Missing thumbnails detected',
-                array_map(fn ($t) => $t->getKey(), $missing)
+                [array_map(fn ($t) => $t->getKey(), $missing)]
             );
         }
     
