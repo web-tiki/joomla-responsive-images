@@ -53,9 +53,12 @@ final class ThumbnailGenerator
             $img = new \Imagick($image->filePath);
     
             if (
-                is_numeric($options['aspectRatio']) && 
+                is_numeric($options['aspectRatio']) &&
                 $options['aspectRatio'] > 0 &&
-                $image->width != $cropBox['width']
+                (
+                    $image->width  !== $cropBox['width'] ||
+                    $image->height !== $cropBox['height']
+                )
             ) {
                 $img->cropImage(
                     $cropBox['width'],
@@ -93,7 +96,7 @@ final class ThumbnailGenerator
                     $baseHeight,
                     \Imagick::FILTER_LANCZOS,
                     1,
-                    true
+                    false
                 );
 
                 // Store working width/height in variables
@@ -117,7 +120,7 @@ final class ThumbnailGenerator
                     $clone = $img; // No need to clone
                 } else {
                     $clone = clone $img;
-                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, true);
+                    $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, false);
                 }                
 
                 $clone->setImageFormat($thumb->extension);
