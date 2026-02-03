@@ -19,6 +19,8 @@ use Throwable;
 
 final class ResponsiveImageHelper
 {
+    private const MAX_DIMENSION = 4096;      // hard safety cap
+    private const MAX_PIXELS    = 16_000_000; // ~16 megapixels
     /* ==========================================================
      * Public API
      * ========================================================== */
@@ -143,49 +145,78 @@ final class ResponsiveImageHelper
 
         foreach ($widths as $w) {
 
-            // If requested width is bigger than original and we haven't generated original-size yet
-            if ($w > $image->width && !$generatedOriginalSize) {
+            // Clamp width to original
+            if ($w > $image->width) {
+                if ($generatedOriginalSize) {
+                    continue;
+                }
                 $w = $image->width;
-                $h = (int) round($w / $thumbRatio);
-                $generatedOriginalSize = true; // mark that original-size thumb has been added
-            } elseif ($w > $image->width) {
-                // skip widths bigger than original once we added original-size thumb
+                $generatedOriginalSize = true;
+            }
+        
+            if ($w <= 0) {
                 continue;
-            } else {
-                $h = (int) round($w / $thumbRatio);
             }
-
-            if ($w <= 0 || $h <= 0) continue;
-
+        
+            $h = (int) round($w / $thumbRatio);
+        
+            // 🔒 Never exceed original height
+            if ($h > $image->height) {
+                $h = $image->height;
+                $w = (int) round($h * $thumbRatio);
+            }
+        
+            // 🔒 Hard safety caps
+            if (
+                $w > self::MAX_DIMENSION ||
+                $h > self::MAX_DIMENSION ||
+                ($w * $h) > self::MAX_PIXELS
+            ) {
+                $debug->log(
+                    'ResponsiveImageHelper',
+                    'Skipping thumbnail (safety limits)',
+                    ['w' => $w, 'h' => $h]
+                );
+                continue;
+            }
+        
             // get requested thumbnail extension
-            $thumbExtension = $image->pathInfo['extension'];
-            if($options['webp']) {
-                $thumbExtension = 'webp';
-            }
-
-            $base = sprintf('%s/%s-%s-q%d-%dx%d.%s', 
-                $thumbsBase, 
-                $image->pathInfo['filename'], 
-                $image->hash, 
-                $options['quality'], 
-                $w, 
-                $h, 
+            $thumbExtension = $options['webp'] ? 'webp' : $image->pathInfo['extension'];
+        
+            $base = sprintf(
+                '%s/%s-%s-q%d-%dx%d.%s',
+                $thumbsBase,
+                $image->pathInfo['filename'],
+                $image->hash,
+                $options['quality'],
+                $w,
+                $h,
                 $thumbExtension
             );
+        
             $thumbnails[] = new RequestedThumbnail(
                 $w,
                 $h,
                 $base,
-                $thumbExtension ?? null,
+                $thumbExtension,
                 $options['quality'],
                 RequestedThumbnail::ROLE_THUMBNAIL,
             );
         }
+        
 
         // FALLBACK get the biggest width under 1280 but not bigger than original image
         $largestRequested = max($widths);
+        
         $fallBackWidth = min($largestRequested, $image->width, 1280);
         $fallBackHeight = (int) round($fallBackWidth / $thumbRatio);
+
+        // 🔒 Ensure fallback never exceeds original height
+        if ($fallBackHeight > $image->height) {
+            $fallBackHeight = $image->height;
+            $fallBackWidth  = (int) round($fallBackHeight * $thumbRatio);
+        }
+
 
           
         $fallBackBase = sprintf('%s/%s-%s-q%d-%dx%d.%s', 
