@@ -263,10 +263,19 @@ final class ResponsiveImageHelper
     /* ==========================================================
      * Utilities
      * ========================================================== */
+
+    private static ?array $cachedParams = null;
+
+
     private static function mergeCallDefaultOptions(array $callOptions): array
     {
-        $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
-        $params = json_decode((string) ($plugin->params ?? '{}'), true) ?: [];
+        // Cache plugin params
+        if (self::$cachedParams === null) {
+            $plugin = PluginHelper::getPlugin('system', 'responsiveimages');
+            self::$cachedParams = json_decode((string) ($plugin->params ?? '{}'), true) ?: [];
+        }
+
+        $params = self::$cachedParams;
 
         $defaults = [
             'lazy' => (bool) ($params['lazy'] ?? true),
