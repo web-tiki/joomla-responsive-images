@@ -282,6 +282,12 @@ final class ResponsiveImageHelper
 
 
         $options = array_merge($defaults, $callOptions);
+
+        // normalize alt field
+        if (!$options['alt']) {
+            $options['alt'] = "";
+        }
+        
         return [$options, (bool)$options['debug']];
     }
 
