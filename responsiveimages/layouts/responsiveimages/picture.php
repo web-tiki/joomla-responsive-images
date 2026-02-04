@@ -39,7 +39,7 @@ if (!empty($data['isSvg'])) { ?>
         <source 
             srcset="<?= $data['srcset']; ?>"
             sizes="<?= $data['sizes']; ?>"
-            type="<?= $data['mime_type']; ?>">
+            type="<?= $data['source_mime_type']; ?>">
     <?php } ?>
 
 

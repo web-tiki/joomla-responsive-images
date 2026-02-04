@@ -57,7 +57,7 @@ final class ResponsiveImageHelper
                 'width' => $image->width,
                 'height' => $image->height,
                 'loading' => $options['lazy'] ? 'loading="lazy"' : '',
-                'mime_type' => $image->mimeType,
+                'source_mime_type' => '',
                 'imageClass' => $options['imageClass'] ?? '',
             ], $debug);
         }
@@ -127,6 +127,14 @@ final class ResponsiveImageHelper
         // Get fallback thumb if it exists
         $fallbackThumb = $thumbnailSet->getFallBack();
 
+        // get the mimetype for the source element
+        if($options['webp']) {
+            $mimeType = 'image/webp';
+        } else {
+            $mimeType = $image->mimeType;
+        }
+        
+
         /* ---------- Srcsets ---------- */
         return self::buildFinalResponse(true, null, [
             'isSvg' => false,
@@ -137,7 +145,7 @@ final class ResponsiveImageHelper
             'width' => $fallbackThumb ? $fallbackThumb->width  : $image->width,
             'height' => $fallbackThumb ? $fallbackThumb->height : $image->height,
             'loading' => $options['lazy'] ? 'loading="lazy"' : '',
-            'mime_type' => $image->mimeType,
+            'source_mime_type' => $mimeType,
             'imageClass' => $options['imageClass'] ?? '',
         ], $debug);
     }
@@ -274,12 +282,6 @@ final class ResponsiveImageHelper
 
 
         $options = array_merge($defaults, $callOptions);
-
-        // normalize alt field
-        if (!$options['alt']) {
-            $options['alt'] = "";
-        }
-        
         return [$options, (bool)$options['debug']];
     }
 
