@@ -150,7 +150,7 @@ final class OriginalImage
         if ($width === 0 || $height === 0) {
             if ($pathInfo['extension'] === 'svg') {
                 [$width, $height] = self::getSvgDimensions($filePath, $debug) ?? [0, 0];
-                $debug->log('OriginalImage', 'SVG image dimensions determined from reading viewBox in file : ' . $width . 'x' . $height);
+                $debug->log('OriginalImage', 'SVG image dimensions determined from reading viewBox or wdht/heigh attrs in file : ' . $width . 'x' . $height);
             } else {
                 [$width, $height] = getimagesize($filePath) ?: [0, 0];
                 $debug->log('OriginalImage', 'Raster image dimensions determined with getImageSize : ' . $width . 'x' . $height);
@@ -212,16 +212,19 @@ final class OriginalImage
     public static function getSvgDimensions(string $filePath, DebugTimeline $debug): array
     {
         try {
-            $content = file_get_contents($filePath);
-
-            if (!$content) {
-                $debug->log('OriginalImage', 'Cannot get content of SVG file : ' . basename($filePath));
+            $handle = fopen($filePath, 'rb');
+            if (!$handle) {
+                $debug->log('OriginalImage', 'Cannot open SVG file: ' . basename($filePath));
                 return [0, 0];
             }
 
-            // Try width and height attributes first
-            if (preg_match('/<svg[^>]+width="([\d.]+)[^"]*"[^>]*height="([\d.]+)[^"]*"/i', $content, $matches)) {
-                return [(int)$matches[1], (int)$matches[2]];
+            // Read only the first 4 KB
+            $content = fread($handle, 4096);
+            fclose($handle);
+
+            if ($content === false || $content === '') {
+                $debug->log('OriginalImage', 'Cannot read SVG file or file is empty: ' . basename($filePath));
+                return [0, 0];
             }
 
             // Fallback to viewBox attribute
@@ -229,7 +232,12 @@ final class OriginalImage
                 return [(int)$matches[1], (int)$matches[2]];
             }
 
-            $debug->log('OriginalImage', 'SVG has no width/height or viewBox attributes : ' . basename($filePath));
+            // Try width and height attributes first
+            if (preg_match('/<svg[^>]+width="([\d.]+)[^"]*"[^>]*height="([\d.]+)[^"]*"/i', $content, $matches)) {
+                return [(int)$matches[1], (int)$matches[2]];
+            }
+
+            $debug->log('OriginalImage', 'SVG has no width/height or viewBox attributes (or cannot get it) : ' . basename($filePath));
 
 
         } catch (\Throwable $e) {
