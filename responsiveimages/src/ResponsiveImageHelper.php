@@ -29,7 +29,7 @@ final class ResponsiveImageHelper
         
         [$options, $isDebug] = self::mergeCallDefaultOptions($callOptions);
 
-        $debug = new DebugTimeline($isDebug,'');
+        $debug = $isDebug ? new DebugTimeline(true, '') : DebugTimeline::noop();
         $debug->log('ResponsiveImageHelper', 'plugin_start');
         $debug->log('ResponsiveImageHelper', 'Merged default and call options', ['imageField' => $imageField, 'options' => $options]);
 

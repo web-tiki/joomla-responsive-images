@@ -30,9 +30,8 @@ if (!class_exists(ResponsiveImageHelper::class)) return;
 
 $result = ResponsiveImageHelper::getProcessedData($imageField, $options);
 
-// Render the Debug Layout if ther is debug data
-if (!empty($result['debug'])) {
-    // echo LayoutHelper::render('responsiveimages.debug', $result['debug'], $basePath);
+// Render the Debug Layout if there is debug data
+if ($result['debug']) {
     echo LayoutHelper::render('responsiveimages.debug', $result['debug'], $basePath);
 }
 

@@ -17,14 +17,33 @@ final class DebugTimeline
 {
     private bool $enabled;
     private float $start;
-    private array $events = [];
+    private ?array $events = null;
     private string $image;
 
     public function __construct(bool $enabled, string $imagePath)
     {
         $this->enabled = $enabled;
-        $this->image   = $imagePath;
-        $this->start   = microtime(true);
+
+        if (!$enabled) {
+            return;
+        }
+
+        $this->image = $imagePath;
+        $this->start = microtime(true);
+    }
+
+    /* ==========================================================
+     * Null object
+     * ========================================================== */
+    public static function noop(): self
+    {
+        static $noop = null;
+
+        if ($noop === null) {
+            $noop = new self(false, '');
+        }
+
+        return $noop;
     }
 
     public function log(string $step, string $event, array $context = []): void
@@ -32,24 +51,26 @@ final class DebugTimeline
         if (!$this->enabled) {
             return;
         }
-
+    
+        $this->events ??= [];
+    
         $this->events[] = [
-            't'      => round(microtime(true) - $this->start, 4),
-            'step'   => $step,
-            'event'  => $event,
-            'data'   => $context,
+            't'     => round(microtime(true) - $this->start, 4),
+            'step'  => $step,
+            'event' => $event,
+            'data'  => $context,
         ];
     }
 
-    public function export(): array
+    public function export(): ?array
     {
         if (!$this->enabled) {
-            return [];
+            return null;
         }
 
         return [
             'image' => $this->image,
-            'events' => $this->events,
+            'events' => $this->events ?? [],
             'total_time' => round(microtime(true) - $this->start, 4),
         ];
     }
