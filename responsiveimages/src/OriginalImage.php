@@ -156,8 +156,8 @@ final class OriginalImage
 
 
         // Get hash and mtime
-        $hash = substr(md5($filePath . filemtime($filePath)), 0, 8);
         $mtime = filemtime($filePath);
+        $hash = substr(md5($filePath . $mtime), 0, 8);
         // Build original image object ------------------------------------------------------------------------
 
         $image = new self(
