@@ -54,6 +54,9 @@ final class OriginalImage
         $this->alt       = $alt;
     }
 
+    /**
+     * @param string|array|object $field
+     */
     public static function getOriginalImageData(mixed $field, string $optionsAlt, DebugTimeline $debug): ?self
     {
 
