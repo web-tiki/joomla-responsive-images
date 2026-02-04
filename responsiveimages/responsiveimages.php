@@ -15,5 +15,6 @@ use Joomla\CMS\Plugin\CMSPlugin;
 
 class PlgSystemResponsiveImages extends CMSPlugin
 {
-    
+    // Intentionally empty.
+    // Plugin logic is handled via src/ResponsiveImageHelper.php
 }
