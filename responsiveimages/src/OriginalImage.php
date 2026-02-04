@@ -120,7 +120,10 @@ final class OriginalImage
         }
 
         // Validate mimeType
-        $mimeType = mime_content_type($filePath);
+        static $finfo = null;
+        $finfo ??= finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $filePath);
+
         $allowedMimeTypes = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
         if(!in_array($mimeType, $allowedMimeTypes)) {
             $debug->log('OriginalImage', 'MimeType not supported :' . $mimeType);
