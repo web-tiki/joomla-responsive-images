@@ -99,12 +99,6 @@ final class ThumbnailGenerator
                     false
                 );
 
-                // Store working width/height in variables
-                $workingWidth = $maxWidth;
-                $workingHeight = $baseHeight;
-            } else {
-                $workingWidth = $currentWidth;
-                $workingHeight = $currentHeight;
             }
 
 
