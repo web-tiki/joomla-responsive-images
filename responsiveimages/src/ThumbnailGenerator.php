@@ -26,7 +26,7 @@ final class ThumbnailGenerator
         array $options,
         DebugTimeline $debug
     ): void {
-        if (!class_exists(\Imagick::class)) {
+        if (!class_exists(Imagick::class)) {
             $debug->log(
                 'ThumbnailGenerator',
                 'Imagick not available, generation aborted'
@@ -141,7 +141,7 @@ final class ThumbnailGenerator
     
             $img->clear();
     
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $debug->log('ThumbnailGenerator', 'Thumbnail generation failed', [
                 'error' => $e->getMessage()
             ]);
