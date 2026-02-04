@@ -211,29 +211,37 @@ final class OriginalImage
      */
     public static function getSvgDimensions(string $filePath, DebugTimeline $debug): array
     {
+        $handle = null;
         try {
+            
+            if (filesize($filePath) > 2_000_000) { // 2 MB max
+                $debug->log('OriginalImage', 'SVG file too large: ' . basename($filePath));
+                return [0, 0];
+            }
+
             $handle = fopen($filePath, 'rb');
             if (!$handle) {
                 $debug->log('OriginalImage', 'Cannot open SVG file: ' . basename($filePath));
                 return [0, 0];
             }
 
-            // Read only the first 4 KB
             $content = fread($handle, 4096);
-            fclose($handle);
-
             if ($content === false || $content === '') {
                 $debug->log('OriginalImage', 'Cannot read SVG file or file is empty: ' . basename($filePath));
                 return [0, 0];
             }
 
-            // Fallback to viewBox attribute
-            if (preg_match('/<svg[^>]+viewBox="[\d.\-]+[\s,]+[\d.\-]+[\s,]+([\d.]+)[\s,]+([\d.]+)"/i', $content, $matches)) {
-                return [(int)$matches[1], (int)$matches[2]];
+            // 1. Try width/height attributes first
+            $regexWH = '/<svg[^>]+(?:width=[\'"]([\d.]+)(?:px)?[\'"][^>]*height=[\'"]([\d.]+)(?:px)?[\'"]|height=[\'"]([\d.]+)(?:px)?[\'"][^>]*width=[\'"]([\d.]+)(?:px)?[\'"])/i';
+            if (preg_match($regexWH, $content, $matches)) {
+                $width  = $matches[1] ?: $matches[4];
+                $height = $matches[2] ?: $matches[3];
+                return [(int)$width, (int)$height];
             }
 
-            // Try width and height attributes first
-            if (preg_match('/<svg[^>]+width="([\d.]+)[^"]*"[^>]*height="([\d.]+)[^"]*"/i', $content, $matches)) {
+            // 2. Fallback to viewBox
+            $regexVB = '/<svg[^>]+viewBox=[\'"]\s*[\d.\-]+\s+[\d.\-]+\s+([\d.]+)\s+([\d.]+)\s*[\'"]/i';
+            if (preg_match($regexVB, $content, $matches)) {
                 return [(int)$matches[1], (int)$matches[2]];
             }
 
@@ -242,6 +250,10 @@ final class OriginalImage
 
         } catch (\Throwable $e) {
             $debug->log('OriginalImage', 'SVG read error :' . $e->getMessage());
+        } finally {
+            if ($handle) {
+                fclose($handle);
+            }
         }
 
         return [0, 0];
