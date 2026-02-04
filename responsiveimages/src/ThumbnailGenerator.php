@@ -134,8 +134,9 @@ final class ThumbnailGenerator
                     $clone->clear();
                     continue;
                 }
-
                 
+                $clone->clear();
+
                 $debug->log('ThumbnailGenerator', 'Generated thumbnail : ' . $thumb->width . 'x' . $thumb->height . ' ' . $thumb->extension );
             }
     
