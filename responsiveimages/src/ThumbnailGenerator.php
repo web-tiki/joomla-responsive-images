@@ -51,6 +51,8 @@ final class ThumbnailGenerator
     
         try {
             $img = new \Imagick($image->filePath);
+
+            $img->transformImageColorspace(Imagick::COLORSPACE_SRGB);
     
             if (
                 is_numeric($options['aspectRatio']) &&
@@ -111,6 +113,8 @@ final class ThumbnailGenerator
                 }
 
                 $clone = clone $img;
+                $clone->setOption('webp:method', '6');
+                $clone->setOption('webp:image-hint', 'photo');
                 $clone->resizeImage($thumb->width, $thumb->height, \Imagick::FILTER_LANCZOS, 1, false);
                 $clone->setImageFormat($thumb->extension);
                 $clone->setImageCompressionQuality($thumb->quality);
