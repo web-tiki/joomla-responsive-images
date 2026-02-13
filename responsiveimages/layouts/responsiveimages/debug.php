@@ -20,7 +20,7 @@ if (!$debug || empty($debug['events'])) {
 }
 ?>
 
-<div class="ri-debug-container" style="background:#1e1e1e; color:#d4d4d4; padding:15px; border-left:5px solid #0078d4; font-family:monospace; font-size:12px; line-height:1.5; margin: 20px 0; overflow:auto;">    
+<div class="ri-debug-container" style="position:relative;z-index:999;text-align:left;background:#1e1e1e; color:#d4d4d4; padding:15px; border-left:5px solid #0078d4; font-family:monospace; font-size:12px; line-height:1.5; margin: 20px 0; overflow:auto;">    
     <details>
         <summary>
             <strong style="color:#569cd6;">[ResponsiveImages Debug]</strong>
