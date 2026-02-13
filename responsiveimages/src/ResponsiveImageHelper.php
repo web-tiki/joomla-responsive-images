@@ -339,34 +339,56 @@ final class ResponsiveImageHelper
 
     private static function buildThumbDirectory(string $filePath, DebugTimeline $debug): string
     {
-        $imagesRoot = realpath(JPATH_ROOT . '/images');
         $dir = realpath(dirname($filePath));
-
-        if (!$imagesRoot || !$dir) {
+    
+        if (!$dir) {
             $debug->log('ResponsiveImageHelper', 'buildThumbDirectory: realpath failed');
             return '';
         }
-
-        // Ensure the image is actually inside /images
-        if (strpos($dir, $imagesRoot) !== 0) {
-            $debug->log('ResponsiveImageHelper', 'buildThumbDirectory: image not inside images folder');
+    
+        // Define allowed base directories (must match OriginalImage validation)
+        $allowedBases = [
+            realpath(JPATH_ROOT . '/images'),
+            realpath(JPATH_ROOT . '/templates'),
+            realpath(JPATH_ROOT . '/media'),
+        ];
+    
+        // Remove any false values
+        $allowedBases = array_filter($allowedBases);
+    
+        // Find which base directory this image belongs to
+        $matchedBase = null;
+        
+        foreach ($allowedBases as $basePath) {
+            if (strpos($dir, $basePath) === 0) {
+                $matchedBase = $basePath;
+                break;
+            }
+        }
+    
+        if (!$matchedBase) {
+            $debug->log('ResponsiveImageHelper', 'buildThumbDirectory: image not inside allowed folders');
             return '';
         }
-
-        // Compute relative path safely
+    
+        // Compute relative path from the matched base
         $rel = ltrim(
-            substr($dir, strlen($imagesRoot)),
+            substr($dir, strlen($matchedBase)),
             DIRECTORY_SEPARATOR
         );
-
-        $base = JPATH_ROOT . '/media/ri-responsiveimages'
+    
+        // Get the base folder name (images/templates/media)
+        $baseName = basename($matchedBase);
+    
+        // Create subfolder structure: /media/ri-responsiveimages/{baseName}/{relative-path}
+        $base = JPATH_ROOT . '/media/ri-responsiveimages/' . $baseName
             . ($rel ? '/' . str_replace(DIRECTORY_SEPARATOR, '/', $rel) : '');
-
+    
         if (!is_dir($base) && !mkdir($base, 0755, true)) {
             $debug->log('ResponsiveImageHelper', 'buildThumbDirectory: mkdir failed', ['base' => $base]);
             return '';
         }
-
+    
         return $base;
     }
 

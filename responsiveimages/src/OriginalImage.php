@@ -116,9 +116,34 @@ final class OriginalImage
             $debug->log('OriginalImage', 'file not found : ' . basename($filePath));
             return null;
         }
-        // Ensure it exists and is inside the site root
-        if ($fileRealPath === false || str_starts_with($fileRealPath, $rootRealPath) === false) {
-            $debug->log('OriginalImage', 'file not inside site root or does not exist :' . basename($filePath));
+
+        // Define allowed base directories
+        $allowedPaths = [
+            realpath(JPATH_ROOT . '/images'),
+            realpath(JPATH_ROOT . '/templates'),
+            realpath(JPATH_ROOT . '/media'),
+        ];
+
+        // Remove any false values (if directories don't exist)
+        $allowedPaths = array_filter($allowedPaths);
+
+        // Check if file exists
+        if ($fileRealPath === false) {
+            $debug->log('OriginalImage', 'file does not exist: ' . basename($filePath));
+            return null;
+        }
+
+        // Check if file is inside one of the allowed directories
+        $isAllowed = false;
+        foreach ($allowedPaths as $allowedPath) {
+            if (str_starts_with($fileRealPath, $allowedPath)) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (!$isAllowed) {
+            $debug->log('OriginalImage', 'file not inside allowed directories: ' . basename($filePath));
             return null;
         }
 

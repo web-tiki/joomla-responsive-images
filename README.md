@@ -47,7 +47,7 @@ Compatible with **Joomla 5 & Joomla 6**.
 
 ### Original images and thumbnail directory
 
-* Original images must be in `/images/` folder
+* Original images must be in `/images/`, `/media/` or `/templates/` folders
 * Thumbnails are created in `/media/ri-responsiveimages/` and mirror the original folder structure
 
 Example: `/images/parcs/new york/` → `/media/ri-responsiveimages/parcs/new york/`
