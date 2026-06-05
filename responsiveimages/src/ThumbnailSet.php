@@ -81,7 +81,9 @@ final class ThumbnailSet implements \IteratorAggregate, \Countable
     {
         $srcset = [];
         foreach ($this as $thumb) {
-            $srcset[] = $thumb->getSrcsetEntry();
+            if ($thumb->isThumbnail()) {
+                $srcset[] = $thumb->getSrcsetEntry();
+            }
         }
         return $srcset;
     }
